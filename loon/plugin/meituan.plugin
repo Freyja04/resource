@@ -1,0 +1,25 @@
+#!name= 美团去广告
+#!desc= 美团去广告
+#!tag = 去广告
+
+[rewrite]
+^https?:\/\/wmapi\.meituan\.com\/api\/v7\/(loadInfo|openscreen|startpicture)\? reject-dict
+
+^https?:\/\/(s3plus|flowplus)\.meituan\.net\/v\d\/\w+\/linglong\/\w+\.(gif|jpg|mp4) reject-dict
+
+^https?:\/\/img\.meituan\.net\/bizad\/bizad_brandCpt_\d+\.jpg reject-dict
+
+^https?:\/\/s3plus\.meituan\.net\/ocean-blk-index\/index\/blk_conf_73\.json reject-dict
+
+^https?:\/\/s3plus\.meituan\.net\/v1\/mss_\w+\/(brandcpt-vedio|waimai-alita)\/\w+\.zip$ reject-dict
+
+^https?:\/\/apimobile\.meituan\.com\/group\/v1\/recommend\/unity\/recommends reject-dict
+
+^https:\/\/p(0|1)\.meituan\.net\/linglong\/\w{36,38}\.gif reject
+
+^https:\/\/p0\.meituan\.net\/travelcube\/7b1797f1a0e9dd936ee134657470507f2067\.png($|\.webp($|[^\s]+)) reject
+
+^https:\/\/p0\.meituan\.net\/linglong\/7ae4f2836035e4b439e58476985592142777\.png($|\.webp($|@[^\s]+)) reject
+
+[MITM]
+hostname = img.meituan.net,s3plus.meituan.net,flowplus.meituan.net,p0.meituan.net,p1.meituan.net
