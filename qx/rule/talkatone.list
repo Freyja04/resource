@@ -22,8 +22,8 @@ HOST-SUFFIX,tappx.com,REJECT
 HOST-SUFFIX,wv.inner-active.mobi,REJECT
 
 # 以下为该软件可能需要走代理的规则
-HOST-SUFFIX,tktn.at,Global
-HOST-SUFFIX,tktn.be,Global
+HOST-SUFFIX,tktn.at,US
+HOST-SUFFIX,tktn.be,US
 
 # 以下为该软件可能需要走直连的规则
 HOST-SUFFIX,agkn.com,DIRECT
