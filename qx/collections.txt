@@ -1,3 +1,6 @@
+#开屏去广告
+https://gist.githubusercontent.com/ddgksf2013/12ef6aad209155e7eb62c5b00c11b9dd/raw/StartUpAds.conf
+
 #12306
 https://raw.githubusercontent.com/ddgksf2013/Scripts/master/12306.js
 
