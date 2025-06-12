@@ -1,3 +1,8 @@
-#  example.org,jp,exclude:qx,loon,mihomo 
+#  domain
+#  domain-suffix
+#  domain-keyword
+#  ipcidr
+#  exclude:qx,loon,mihomo
+#  domain-suffix,google.com,us,exclude:qx
 
-time.apple.com,direct,exclude:mihomo
+domain,time.apple.com,direct,exclude:mihomo
