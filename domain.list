@@ -1,1 +1,3 @@
-google.com,direct
+#  example.org,jp,exclude:qx,loon,mihomo 
+
+time.apple.com,direct,exclude:mihomo
