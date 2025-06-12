@@ -16,6 +16,8 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest # 在 Ubuntu 虚拟机上运行此作业
+    permissions:
+      contents: write # 显式授予对仓库内容的写入权限
 
     steps:
     - name: 检出仓库代码
