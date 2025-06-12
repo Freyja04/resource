@@ -1,0 +1,43 @@
+# 文件名: .github/workflows/generate_proxy_rules.yml
+# 存放在您的GitHub仓库的 .github/workflows/ 目录下。
+# 这是 GitHub Actions 的工作流定义文件，负责在文件更新时自动运行脚本。
+
+name: Generate Proxy Rules (Python) # 工作流名称
+
+on:
+  push:
+    branches:
+      - main # 当推送到 main 分支时触发此工作流
+    paths:
+      - 'domain.list' # 只有当 domain.list 文件有变化时才触发
+      - 'generate_rules.py' # 当脚本文件有变化时也触发
+  workflow_dispatch: # 允许您在 GitHub Actions 页面手动触发此工作流
+
+jobs:
+  build:
+    runs-on: ubuntu-latest # 在 Ubuntu 虚拟机上运行此作业
+
+    steps:
+    - name: 检出仓库代码
+      uses: actions/checkout@v4 # 使用 actions/checkout@v4 来获取您的仓库代码
+
+    - name: 设置 Python 环境
+      uses: actions/setup-python@v5 # 使用 actions/setup-python@v5 来配置 Python 环境
+      with:
+        python-version: '3.x' # 指定使用最新的 Python 3 版本
+
+    - name: 运行脚本生成规则文件
+      run: python generate_rules.py # 执行 Python 脚本，生成规则文件
+
+    - name: 提交并推送更改 (如果存在)
+      run: |
+        # 配置 Git 用户名和邮箱，以便 GitHub Actions 可以提交更改
+        git config --global user.name 'github-actions[bot]'
+        git config --global user.email 'github-actions[bot]@users.noreply.github.com'
+        # 将所有生成的规则文件添加到 Git 暂存区
+        # 注意：这里我们添加的是 rules/ 文件夹内的 .list 文件
+        git add rules/*.list
+        # 检查是否有实际的更改，如果没有则不提交，避免生成空提交
+        git diff-index --quiet HEAD || git commit -m "自动生成代理规则文件 (Python)"
+        # 推送更改到远程仓库
+        git push
