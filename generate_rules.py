@@ -3,7 +3,7 @@
 # 生成适用于 Quantumult X, Loon 和 Mihomo/Clash Meta 的代理规则集。
 # 仅支持 DOMAIN, DOMAIN-SUFFIX, DOMAIN-KEYWORD, IP-CIDR 四种规则类型。
 # 域名/IP和排除类型的大小写将统一转换为小写，策略名将保持原始大小写。
-# 对于 IP-CIDR 规则，Loon 和 Mihomo 将默认添加 ',no-resolve' 字段。
+# 对于 IP-CIDR 规则，Loon 和 Mihomo 默认会添加 ',no-resolve' 字段，无论 domain.list 中是否显式指定。
 
 import os
 from datetime import datetime
@@ -107,6 +107,7 @@ def generate_loon_rules(all_parsed_rules):
         rule_type_from_list = item.get('type')
         target = item.get('target')
         policy = item.get('policy')
+        # needs_no_resolve = item.get('needs_no_resolve', False) # 不再直接控制，而是默认添加
 
         if 'loon' in item.get('exclude_from', set()):
             print(f"信息: '{target}' ({rule_type_from_list}) 被标记为 'exclude:loon'，已从 Loon 规则中跳过。")
@@ -120,12 +121,14 @@ def generate_loon_rules(all_parsed_rules):
 
         if target and policy:
             if rule_type_from_list == 'ip-cidr':
+                # 对于Loon的IP规则，无论domain.list中是否指定，都默认添加',no-resolve'
+                no_resolve_suffix = ",no-resolve" 
                 try:
                     ip_network = ipaddress.ip_network(target, strict=False)
                     if ip_network.version == 4:
-                        rules.append(f"IP-CIDR,{target},{policy},no-resolve") # 添加 ,no-resolve
+                        rules.append(f"IP-CIDR,{target},{policy}{no_resolve_suffix}")
                     elif ip_network.version == 6:
-                        rules.append(f"IP-CIDR6,{target},{policy},no-resolve") # 添加 ,no-resolve
+                        rules.append(f"IP-CIDR6,{target},{policy}{no_resolve_suffix}")
                 except ValueError:
                     print(f"警告: Loon 规则 '{target}' (IP-CIDR) 不是有效的 IP CIDR，跳过。")
             else:
@@ -152,6 +155,7 @@ def generate_mihomo_rules(all_parsed_rules):
         rule_type_from_list = item.get('type')
         target = item.get('target')
         policy = item.get('policy')
+        # needs_no_resolve = item.get('needs_no_resolve', False) # 不再直接控制，而是默认添加
 
         if 'mihomo' in item.get('exclude_from', set()):
             print(f"信息: '{target}' ({rule_type_from_list}) 被标记为 'exclude:mihomo'，已从 Mihomo 规则中跳过。")
@@ -165,12 +169,14 @@ def generate_mihomo_rules(all_parsed_rules):
 
         if target and policy:
             if rule_type_from_list == 'ip-cidr':
+                # 对于Mihomo的IP规则，无论domain.list中是否指定，都默认添加',no-resolve'
+                no_resolve_suffix = ",no-resolve" 
                 try:
                     ip_network = ipaddress.ip_network(target, strict=False)
                     if ip_network.version == 4:
-                        rules.append(f"IP-CIDR,{target},{policy},no-resolve") # 添加 ,no-resolve
+                        rules.append(f"IP-CIDR,{target},{policy}{no_resolve_suffix}")
                     elif ip_network.version == 6:
-                        rules.append(f"IP-CIDR6,{target},{policy},no-resolve") # 添加 ,no-resolve
+                        rules.append(f"IP-CIDR6,{target},{policy}{no_resolve_suffix}")
                 except ValueError:
                     print(f"警告: Mihomo 规则 '{target}' (IP-CIDR) 不是有效的 IP CIDR，跳过。")
             else:
@@ -222,14 +228,24 @@ def main():
                 target = target_str_raw.lower()
                 policy = policy_raw # 策略名保持原始大小写
 
+                # 初始化可选字段
+                # needs_no_resolve = False # 不再需要，因为是默认添加
                 exclude_types = set()
-                # 处理可选的排除部分（如果存在第四部分）
-                if len(parts) >= 4:
-                    exclude_part = parts[3].strip().lower()
-                    if exclude_part.startswith('exclude:'):
-                        types_str = exclude_part[len('exclude:'):]
-                        if types_str:
-                            exclude_types = set(t.strip().lower() for t in types_str.split(',') if t.strip())
+
+                # 处理剩余的可选部分（从第四部分开始）
+                if len(parts) > 3:
+                    for i in range(3, len(parts)):
+                        optional_part = parts[i].strip().lower() # 转换为小写进行匹配
+
+                        # if optional_part == 'no-resolve': # 不再需要显式判断 no-resolve，它是默认行为
+                        #     needs_no_resolve = True
+                        if optional_part.startswith('exclude:'):
+                            types_str = optional_part[len('exclude:'):]
+                            if types_str:
+                                exclude_types.update(t.strip().lower() for t in types_str.split(',') if t.strip())
+                        else:
+                            print(f"警告: 无法识别的可选字段 '{parts[i]}'，已忽略。行: \"{trimmed_line}\" (原始行)。")
+
 
                 # 验证规则类型是否是我们支持的类型
                 if rule_type not in RULE_MAPPING:
@@ -250,7 +266,8 @@ def main():
                         'type': rule_type,
                         'target': target,
                         'policy': policy,
-                        'exclude_from': exclude_types
+                        'exclude_from': exclude_types,
+                        # 'needs_no_resolve': needs_no_resolve # 不再需要，因为是默认添加
                     })
                 else:
                     print(f"警告: 跳过格式不正确的行 (目标或策略为空): \"{trimmed_line}\" (原始行)。")
