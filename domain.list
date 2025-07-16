@@ -1,8 +1,0 @@
-#  domain
-#  domain-suffix
-#  domain-keyword
-#  ipcidr
-#  exclude:qx,loon,mihomo
-#  domain-suffix,google.com,us,exclude:qx
-
-domain,time.apple.com,direct,exclude:mihomo
