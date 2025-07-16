@@ -27,7 +27,7 @@ jobs:
       run: |
         git config user.name 'github-actions[bot]' # 配置 Git 用户名
         git config user.email 'github-actions[bot]@users.noreply.github.com' # 配置 Git 用户邮箱
-        git add resource/loon/rule.plugin # 添加修改后的 plugin 文件
+        git add loon/rule.plugin # 添加修改后的 plugin 文件
         git commit -m "chore: Sync rule.list to rule.plugin [skip ci]" || echo "No changes to commit" # 提交更改，并跳过再次触发 CI
         git push # 推送更改
       env:
