@@ -3,3 +3,20 @@
 #!icon= https://raw.githubusercontent.com/Koolson/Qure/master/IconSet/Color/Cat.png
 
 [rule]
+#12306
+DOMAIN, ad.12306.cn, DIRECT
+
+#大师兄影视
+DOMAIN,sdk.alibaba.com.ailbaba.me, DIRECT
+DOMAIN,img.ffzypic.com, DIRECT
+DOMAIN,img.liangzipic.com, DIRECT
+DOMAIN,img.bfzypic.com, DIRECT
+DOMAIN,img.kuaikanzy.net, DIRECT
+DOMAIN,vip.imgffzy.com, DIRECT
+DOMAIN,vip.ffzyread.com, DIRECT
+DOMAIN,cdn.jsdelivr.net, DIRECT
+DOMAIN,image.maimn.com, DIRECT
+DOMAIN-KEYWORD,bfzycdn.com, DIRECT
+DOMAIN-KEYWORD,vip.kuaikan-cdn, DIRECT
+DOMAIN-KEYWORD,vip.ffzy-play, DIRECT
+DOMAIN-KEYWORD,vip.ffzy-online, DIRECT
