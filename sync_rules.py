@@ -2,12 +2,13 @@ import os
 
 def append_mihomo_rules_to_existing_loon_plugin(repo_root_dir="."):
     """
-    将 rule.list 中的 Mihomo 规则内容追加到 **已存在的** loon/rule.plugin 文件中。
-    如果 loon/rule.plugin 文件不存在，则不进行任何操作并打印错误。
+    将 rule.list 中的 Mihomo 规则内容追加到 **已存在的** loon/plugin/rule.plugin 文件中。
+    如果 loon/plugin/rule.plugin 文件不存在，则不进行任何操作并打印错误。
     规则将被追加到 [rule] 部分的末尾。
     """
     rule_list_path = os.path.join(repo_root_dir, "rule.list")
-    plugin_path = os.path.join(repo_root_dir, "loon", "rule.plugin")
+    # 修正插件文件的路径
+    plugin_path = os.path.join(repo_root_dir, "loon", "plugin", "rule.plugin")
 
     # --- 1. 检查文件是否存在 ---
     if not os.path.exists(rule_list_path):
@@ -54,8 +55,6 @@ def append_mihomo_rules_to_existing_loon_plugin(repo_root_dir="."):
                         break
             
             # 将新规则插入到指定位置
-            # 注意：这里我们插入时会带上换行符，因为 readlines() 读取的行通常也包含换行符
-            # 确保每条规则后面都有一个换行符
             rules_to_insert = [f"{rule}\n" for rule in mihomo_rules_to_append]
             content_lines[append_index:append_index] = rules_to_insert
             
