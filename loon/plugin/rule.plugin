@@ -1,7 +1,5 @@
-#!name=自定义分流规则
-#!desc=自定义分流规则
+#!name= 自定义分流规则
+#!desc= 自定义分流规则
+#!icon= https://raw.githubusercontent.com/Koolson/Qure/master/IconSet/Color/Cat.png
 
 [rule]
-DOMAIN, ad.12306.cn, DIRECT
-DOMAIN, ad.cn, DIRECT
-DOMAIN, google.com, DIRECT
