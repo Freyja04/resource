@@ -3,23 +3,18 @@
 #!icon= https://raw.githubusercontent.com/Koolson/Qure/master/IconSet/Color/Cat.png
 
 [rule]
-DOMAIN-SUFFIX, helloworld17.cf, DIRECT
+DOMAIN-KEYWORD, kelee, DIRECT
 DOMAIN-SUFFIX, dearjohn17.cf, DIRECT
+DOMAIN-SUFFIX, helloworld17.cf, DIRECT
 
-#12306
-DOMAIN, ad.12306.cn, DIRECT
+#微信httpdns
+DOMAIN,dns.weixin.qq.com,DIRECT
+DOMAIN,dns.weixin.qq.com.cn,DIRECT
+IP-CIDR,42.81.232.18/32,DIRECT,no-resolve
+IP-CIDR,42.187.182.106/32,DIRECT,no-resolve
+IP-CIDR,42.187.182.123/32,DIRECT,no-resolve
+IP-CIDR,42.187.184.154/32,DIRECT,no-resolve
+IP-CIDR,123.151.54.50/32,DIRECT,no-resolve
+IP-CIDR6,2402:4e00:1900:1700:0:9554:1ad9:c3a/128,DIRECT,no-resolve
+IP-CIDR6,240e:928:1400:10::25/128,DIRECT,no-resolve
 
-#大师兄影视
-DOMAIN,sdk.alibaba.com.ailbaba.me, DIRECT
-DOMAIN,img.ffzypic.com, DIRECT
-DOMAIN,img.liangzipic.com, DIRECT
-DOMAIN,img.bfzypic.com, DIRECT
-DOMAIN,img.kuaikanzy.net, DIRECT
-DOMAIN,vip.imgffzy.com, DIRECT
-DOMAIN,vip.ffzyread.com, DIRECT
-DOMAIN,cdn.jsdelivr.net, DIRECT
-DOMAIN,image.maimn.com, DIRECT
-DOMAIN-KEYWORD,bfzycdn.com, DIRECT
-DOMAIN-KEYWORD,vip.kuaikan-cdn, DIRECT
-DOMAIN-KEYWORD,vip.ffzy-play, DIRECT
-DOMAIN-KEYWORD,vip.ffzy-online, DIRECT
