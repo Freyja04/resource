@@ -1,6 +1,5 @@
 DOMAIN-KEYWORD, kelee, DIRECT
-DOMAIN-SUFFIX, dearjohn17.cf, DIRECT
-DOMAIN-SUFFIX, helloworld17.cf, DIRECT
+DOMAIN-KEYWORD, motv, DIRECT
 
 #微信httpdns
 DOMAIN,dns.weixin.qq.com,DIRECT
