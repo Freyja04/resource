@@ -1,4 +1,5 @@
-DOMAIN,tv.helloworld17.eu.org,DIRECT
+DOMAIN-KEYWORD, helloworld17, DIRECT
+DOMAIN-KEYWORD, douban, DIRECT
 DOMAIN-KEYWORD, kelee, DIRECT
 
 #微信httpdns
