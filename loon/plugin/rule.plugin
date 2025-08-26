@@ -18,3 +18,5 @@ IP-CIDR,123.151.54.50/32,DIRECT,no-resolve
 IP-CIDR6,2402:4e00:1900:1700:0:9554:1ad9:c3a/128,DIRECT,no-resolve
 IP-CIDR6,240e:928:1400:10::25/128,DIRECT,no-resolve
 
+#农行代理检测
+DOMAIN,msmp.abchina.com.cn,reject
