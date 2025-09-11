@@ -2,16 +2,5 @@ DOMAIN-KEYWORD, helloworld17, DIRECT
 DOMAIN-KEYWORD, douban, DIRECT
 DOMAIN-KEYWORD, kelee, DIRECT
 
-#微信httpdns
-DOMAIN,dns.weixin.qq.com,DIRECT
-DOMAIN,dns.weixin.qq.com.cn,DIRECT
-IP-CIDR,42.81.232.18/32,DIRECT,no-resolve
-IP-CIDR,42.187.182.106/32,DIRECT,no-resolve
-IP-CIDR,42.187.182.123/32,DIRECT,no-resolve
-IP-CIDR,42.187.184.154/32,DIRECT,no-resolve
-IP-CIDR,123.151.54.50/32,DIRECT,no-resolve
-IP-CIDR6,2402:4e00:1900:1700:0:9554:1ad9:c3a/128,DIRECT,no-resolve
-IP-CIDR6,240e:928:1400:10::25/128,DIRECT,no-resolve
-
 #农行代理检测
 DOMAIN,msmp.abchina.com.cn,REJECT
