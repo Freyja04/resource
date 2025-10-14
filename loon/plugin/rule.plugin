@@ -15,3 +15,8 @@ domain,msmp.abchina.com.cn,reject
 domain-keyword,helloworld17,direct
 domain-keyword,douban,direct
 domain-keyword,kelee,direct
+
+# === Start of Newly Added Rules ===
+ip-cidr,2001:4860:4860::8888/64,direct
+
+# === End of Newly Added Rules ===
