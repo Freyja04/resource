@@ -20,3 +20,11 @@ domain-keyword,kelee,direct
 ip-cidr,2001:4860:4860::8888/64,direct
 
 # === End of Newly Added Rules ===
+
+domain-keyword,douban,direct
+domain-keyword,helloworld17,direct
+domain-keyword,kelee,direct
+domain-suffix,p2p.huya.com,direct
+domain,msmp.abchina.com.cn,reject
+ip-cidr6,2001:4860:4860::8888/64,direct
+
