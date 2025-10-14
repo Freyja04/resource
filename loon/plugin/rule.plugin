@@ -4,7 +4,9 @@
 
 [rule]
 
-domain-wildcard,*.googe.com,reject
+ip-cidr6,2001:4860:4860::8888/64,direct
+ip-cidr,2001:4860:4860::8888/64,direct
+domain-wildcard,*.googlle.com,direct
 
 #虎牙直播
 domain-suffix,p2p.huya.com,direct
@@ -15,16 +17,3 @@ domain,msmp.abchina.com.cn,reject
 domain-keyword,helloworld17,direct
 domain-keyword,douban,direct
 domain-keyword,kelee,direct
-
-# === Start of Newly Added Rules ===
-ip-cidr,2001:4860:4860::8888/64,direct
-
-# === End of Newly Added Rules ===
-
-domain-keyword,douban,direct
-domain-keyword,helloworld17,direct
-domain-keyword,kelee,direct
-domain-suffix,p2p.huya.com,direct
-domain,msmp.abchina.com.cn,reject
-ip-cidr6,2001:4860:4860::8888/64,direct
-
