@@ -3,9 +3,15 @@
 #!icon= https://raw.githubusercontent.com/Koolson/Qure/master/IconSet/Color/Cat.png
 
 [rule]
-DOMAIN-KEYWORD, helloworld17, DIRECT
-DOMAIN-KEYWORD, douban, DIRECT
-DOMAIN-KEYWORD, kelee, DIRECT
+
+domain-wildcard,*.googe.com,reject
+
+#虎牙直播
+domain-suffix,p2p.huya.com,direct
 
 #农行代理检测
-DOMAIN,msmp.abchina.com.cn,REJECT
+domain,msmp.abchina.com.cn,reject
+
+domain-keyword,helloworld17,direct
+domain-keyword,douban,direct
+domain-keyword,kelee,direct
