@@ -1,7 +1,11 @@
 import os
-from typing import List, Tuple, Optional
+from typing import List
 
-# --- 辅助函数：用于规则转换 ---
+# --- 保护区标记常量 ---
+PROTECT_START_TAG = "# <LOON-BEGIN>" 
+PROTECT_END_TAG = "# <LOON-END>"
+
+# --- 辅助函数：用于规则转换 (与上次保持一致) ---
 
 def is_functional_rule(line: str) -> bool:
     """检查一行是否是功能性规则（非注释、非空行）。"""
@@ -14,17 +18,15 @@ def convert_rule_line(line: str) -> str:
     如果无法识别或转换，则返回原行。
     """
     if not is_functional_rule(line):
-        return line # 保留非规则行
+        return line 
 
     parts = [p.strip() for p in line.strip().split(',', 2)]
     if len(parts) < 3:
-        # 格式错误，保留原行
         return line
     
-    # 统一转换为大写以便匹配
     rule_type_upper = parts[0].upper()
-    rule_value = parts[1].lower() # 规则值转小写
-    policy = parts[2].lower()     # 策略组名称转小写
+    rule_value = parts[1].lower()
+    policy = parts[2].lower()
     
     new_rule_type = rule_type_upper
     
@@ -40,12 +42,10 @@ def convert_rule_line(line: str) -> str:
     elif rule_type_upper == "IP6-CIDR":
         new_rule_type = "IP-CIDR6"    
     elif rule_type_upper in ("IP-CIDR", "GEOIP", "GEOIP-CN", "FINAL"):
-        pass # 兼容规则类型保持不变
+        pass
     else:
-        # 无法识别的规则类型，保留原行
         return line
 
-    # 构建转换后的标准规则，类型名称转小写
     return f"{new_rule_type.lower()},{rule_value},{policy}\n"
 
 def process_rule_list(rule_list_path: str) -> List[str]:
@@ -60,14 +60,15 @@ def process_rule_list(rule_list_path: str) -> List[str]:
     return processed_lines
 
 
-def sync_rules_to_loon_plugin_replace(repo_root_dir="."):
+def sync_rules_to_loon_plugin_protected_dual_tag(repo_root_dir="."):
     """
-    将 rule.list 转换后的内容完全替换到 loon/plugin/rule.plugin 文件中 [rule] 节后面的内容。
+    将 rule.list 转换后的内容插入到 loon/plugin/rule.plugin 文件中 
+    # <LOON-END> 标记之后，并替换该区域内原有的非保护内容。
     """
     rule_list_path = os.path.join(repo_root_dir, "rule.list")
     plugin_path = os.path.join(repo_root_dir, "loon", "plugin", "rule.plugin")
 
-    # --- 1. 检查文件是否存在 ---
+    # --- 1. 检查文件 ---
     if not os.path.exists(rule_list_path) or not os.path.exists(plugin_path):
         print("错误：源文件或目标文件不存在，请检查路径。")
         return
@@ -75,56 +76,89 @@ def sync_rules_to_loon_plugin_replace(repo_root_dir="."):
     # --- 2. 处理 rule.list，获取转换后的内容 ---
     converted_rules = process_rule_list(rule_list_path)
     
-    # --- 3. 处理 rule.plugin 文件并替换 [rule] 节 ---
+    # --- 3. 处理 rule.plugin 文件 ---
     try:
         with open(plugin_path, 'r+', encoding='utf-8') as f:
             plugin_lines = f.readlines()
             
-            rule_section_start_index = -1
-            rule_section_end_index = -1
+            # 初始化边界索引
+            rule_section_start_index = -1  # [rule] 节开始
+            protect_start_index = -1       # # <LOON-BEGIN> 标记
+            protect_end_index = -1         # # <LOON-END> 标记
+            rule_section_end_index = -1    # 下一个节开始或文件末尾
 
-            # A. 找到 [rule] 节的起始行
+            # 查找所有边界
             for i, line in enumerate(plugin_lines):
                 if line.strip().lower() == "[rule]":
                     rule_section_start_index = i
-                    break
+                elif line.strip() == PROTECT_START_TAG:
+                    protect_start_index = i
+                elif line.strip() == PROTECT_END_TAG:
+                    protect_end_index = i
+                elif line.strip().startswith("[") and line.strip() != "[rule]":
+                    if rule_section_start_index != -1 and rule_section_end_index == -1:
+                        rule_section_end_index = i
             
+            # 检查关键边界
             if rule_section_start_index == -1:
                 print(f"错误：在 {plugin_path} 中未找到 [rule] 部分。无法同步规则。")
                 return 
 
-            # B. 找到 [rule] 部分的结束行（下一个以 '[' 开头的节，或者文件末尾）
-            for i in range(rule_section_start_index + 1, len(plugin_lines)):
-                stripped_line = plugin_lines[i].strip()
-                # 找到下一个节标题
-                if stripped_line.startswith("[") and stripped_line.endswith("]"): 
-                    rule_section_end_index = i
-                    break
-            
             if rule_section_end_index == -1:
-                rule_section_end_index = len(plugin_lines) 
-
-            # C. 构建新的文件内容
+                 rule_section_end_index = len(plugin_lines)
             
-            # 头部内容 (从文件开始到 [rule] 节，包含 [rule] 这一行)
-            new_plugin_content = plugin_lines[:rule_section_start_index + 1] 
+            # 检查保护区标记是否存在且顺序正确
+            is_protected = (protect_start_index != -1 and protect_end_index != -1 and protect_start_index < protect_end_index)
+            
+            if not is_protected:
+                print(f"警告：未找到配对的保护区标记 ({PROTECT_START_TAG} 和 {PROTECT_END_TAG}) 或顺序错误。将对 [rule] 节内容进行完全替换。")
+                
+                # 降级为完全替换模式
+                replace_start_index = rule_section_start_index + 1 
+                
+                # A. 头部 (从文件开始到 [rule] 节)
+                new_plugin_content = plugin_lines[:replace_start_index]
+                
+                # B. 插入 rule.list 转换后的内容
+                new_plugin_content.append('\n')
+                new_plugin_content.extend(converted_rules)
+                new_plugin_content.append('\n')
 
-            # 插入 rule.list 转换后的内容，确保开头有一个空行以保持格式美观
-            new_plugin_content.append('\n')
-            new_plugin_content.extend(converted_rules)
+                # C. 尾部 (从 [rule] 节结束后到文件末尾)
+                new_plugin_content.extend(plugin_lines[rule_section_end_index:])
 
-            # 尾部内容 (从 [rule] 节结束后到文件末尾)
-            new_plugin_content.extend(plugin_lines[rule_section_end_index:])
+            else:
+                # 正常保护模式：提取内容并重组
+                
+                # 保护区内容 (包含标记)
+                protected_content = plugin_lines[protect_start_index : protect_end_index + 1]
 
-            # D. 写回文件
+                # --- 4. 构建新的文件内容 ---
+                
+                # A. 头部 + [Rule] 节：从文件开始到保护区起始标记之前的所有内容
+                new_plugin_content = plugin_lines[:protect_start_index] 
+                
+                # B. 插入保护区内容
+                new_plugin_content.extend(protected_content)
+                new_plugin_content.append('\n') # 保护区后加一个空行
+
+                # C. 插入 rule.list 转换后的最新内容
+                new_plugin_content.extend(converted_rules)
+                new_plugin_content.append('\n') # 新规则后加一个空行
+
+                # D. 尾部 (从 [rule] 节结束后到文件末尾)
+                new_plugin_content.extend(plugin_lines[rule_section_end_index:])
+
+
+            # --- 5. 写回文件 ---
             f.seek(0)
             f.writelines(new_plugin_content)
             f.truncate() 
 
-        print(f"✅ 成功：{plugin_path} 文件中 [rule] 节的内容已被 {rule_list_path} 转换后的内容完全替换。")
+        print(f"✅ 成功：{plugin_path} 文件中 [rule] 节的内容已在保护区 ({PROTECT_START_TAG} - {PROTECT_END_TAG}) 之后更新为 {rule_list_path} 的最新内容。")
 
     except Exception as e:
         print(f"处理 {plugin_path} 文件时发生错误：{e}")
 
 if __name__ == "__main__":
-    sync_rules_to_loon_plugin_replace()
+    sync_rules_to_loon_plugin_protected_dual_tag()
