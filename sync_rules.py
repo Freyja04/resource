@@ -15,23 +15,29 @@ def is_functional_rule(line: str) -> bool:
 def convert_rule_line(line: str) -> str:
     """
     将 QX 格式规则转换为小写标准格式，并为 IP 类规则添加 no-resolve。
-    如果无法识别或转换，则返回原行。
+    确保转换后的内容遵循以下大小写格式：
+    规则类型（如 DOMAIN, IP-CIDR）转换为大写。
+    规则值（如域名, IP）统一转换为小写。
+    策略组（如 DIRECT, REJECT）统一转换为大写。
+    no-resolve 一律小写。
     """
     if not is_functional_rule(line):
         return line 
 
+    # 分割规则：类型,值,策略
     parts = [p.strip() for p in line.strip().split(',', 2)]
     if len(parts) < 3:
         return line
     
-    rule_type_upper = parts[0].upper()
-    rule_value = parts[1].lower()
-    policy = parts[2].lower()
+    rule_type_upper = parts[0].strip().upper() # 原始类型的大写形式，用于判断
+    rule_value_original = parts[1].strip()
+    policy_original = parts[2].strip()
     
+    # 转换后的规则类型，默认使用原始大写类型
     new_rule_type = rule_type_upper
     extra_params = "" # 用于存储 no-resolve
 
-    # 规则类型转换逻辑
+    # --- 规则类型转换逻辑（保留原脚本的功能） ---
     if rule_type_upper == "HOST":
         new_rule_type = "DOMAIN" 
     elif rule_type_upper == "HOST-SUFFIX":
@@ -44,19 +50,30 @@ def convert_rule_line(line: str) -> str:
     # --- IP 类规则：进行格式转换并添加 no-resolve ---
     elif rule_type_upper == "IP-CIDR":
         new_rule_type = "IP-CIDR"
-        extra_params = ",no-resolve"
+        extra_params = ",no-resolve" # no-resolve 小写
     elif rule_type_upper == "IP6-CIDR":
         new_rule_type = "IP-CIDR6"    # QX 格式转标准格式
-        extra_params = ",no-resolve"
+        extra_params = ",no-resolve" # no-resolve 小写
     
-    # --- 其他兼容规则 ---
+    # --- 其他兼容规则（类型保持不变） ---
     elif rule_type_upper in ("GEOIP", "GEOIP-CN", "FINAL"):
         pass
     else:
+        # 无法识别或不需要转换的规则，直接返回原行，不进行大小写修改
         return line
 
-    # 构建转换后的标准规则： 类型,值,策略,no-resolve\n
-    return f"{new_rule_type.lower()},{rule_value},{policy}{extra_params}\n"
+    # --- 统一大小写格式化（这是本次修改的核心） ---
+    
+    # 规则类型：new_rule_type 已经是大写或转换为大写
+    
+    # 规则值：统一转换为小写
+    new_rule_value = rule_value_original.lower()
+    
+    # 策略：统一转换为大写
+    new_policy = policy_original.upper()
+    
+    # 构建转换后的标准规则： 类型(大写),值(小写),策略(大写),no-resolve(小写)\n
+    return f"{new_rule_type},{new_rule_value},{new_policy}{extra_params}\n"
 
 def process_rule_list(rule_list_path: str) -> List[str]:
     """读取 rule.list，对所有规则行进行转换，并保留注释/空行。"""
@@ -163,7 +180,7 @@ def sync_rules_to_loon_plugin_protected_dual_tag(repo_root_dir="."):
             f.writelines(new_plugin_content)
             f.truncate() 
 
-        print(f"✅ 成功：规则转换完成，IP 规则已添加 no-resolve 参数，并更新了 {plugin_path} 文件。")
+        print(f"✅ 成功：规则转换和大小写格式化完成。格式遵循：类型(大写),值(小写),策略(大写)，IP 规则已添加 no-resolve(小写) 参数，并更新了 {plugin_path} 文件。")
 
     except Exception as e:
         print(f"处理 {plugin_path} 文件时发生错误：{e}")

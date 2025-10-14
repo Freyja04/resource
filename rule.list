@@ -1,14 +1,9 @@
-host-keyword, helloworld17, direct
-
-#kelee资源直连
-host-keyword, kelee, direct
-
-#moontv
-host-keyword, douban, direct
-
-#虎牙直播
-host-suffix, p2p.huya.com, direct
-
 #农行代理检测
 host, msmp.abchina.com.cn, reject
-
+#虎牙直播
+host-suffix, p2p.huya.com, direct
+#moontv
+host-keyword, douban, direct
+#kelee资源直连
+host-keyword, kelee, direct
+host-keyword, helloworld17, direct
