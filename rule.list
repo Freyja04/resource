@@ -1,6 +1,10 @@
-ip6-cidr, 2001:4860:4860::8888/64, direct
-ip-cidr, 2001:4860:4860::8888/64, direct
-domain-wildcard,*.googlle.com,direct
+host-keyword, helloworld17, direct
+
+#kelee资源直连
+host-keyword, kelee, direct
+
+#moontv
+host-keyword, douban, direct
 
 #虎牙直播
 host-suffix, p2p.huya.com, direct
@@ -8,6 +12,3 @@ host-suffix, p2p.huya.com, direct
 #农行代理检测
 host, msmp.abchina.com.cn, reject
 
-host-keyword, helloworld17, direct
-host-keyword, douban, direct
-host-keyword, kelee, direct
