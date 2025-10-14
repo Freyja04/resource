@@ -1,5 +1,5 @@
 ip6-cidr, 2001:4860:4860::8888/64, direct
-HOST-WILDCARD,*.gooe.com,reject
+HOST-WILDCARD,*.googe.com,reject
 
 #虎牙直播
 host-suffix, p2p.huya.com, direct
