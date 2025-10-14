@@ -1,6 +1,12 @@
-DOMAIN-KEYWORD, helloworld17, DIRECT
-DOMAIN-KEYWORD, douban, DIRECT
-DOMAIN-KEYWORD, kelee, DIRECT
+ip6-cidr, 2001:4860:4860::8888/64, direct
+HOST-WILDCARD,*.google.com,reject
+
+#虎牙直播
+host-suffix, p2p.huya.com, direct
 
 #农行代理检测
-DOMAIN,msmp.abchina.com.cn,REJECT
+host, msmp.abchina.com.cn, reject
+
+host-keyword, helloworld17, direct
+host-keyword, douban, direct
+host-keyword, kelee, direct
