@@ -18,5 +18,18 @@ IP-CIDR6,240e:928:1400:10::25/128,DIRECT,no-resolve
 
 # <LOON-END>
 
+domain-keyword,helloworld17,direct
+
+#kelee资源直连
+domain-keyword,kelee,direct
+
+#moontv
+domain-keyword,douban,direct
+
+#虎牙直播
+domain-suffix,p2p.huya.com,direct
+
+#农行代理检测
+domain,msmp.abchina.com.cn,reject
 
 
