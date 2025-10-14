@@ -1,4 +1,4 @@
-name: Sync Mihomo Rules to Loon Plugin
+name: Sync Rules to Loon Plugin
 
 on:
   push:
