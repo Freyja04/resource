@@ -1,88 +1,119 @@
 import os
+from typing import Dict, List, Optional, Tuple
 
-def convert_and_sync_rules_to_loon_plugin(repo_root_dir="."):
+# --- 规则解析和转换函数 ---
+
+def is_functional_rule(line: str) -> bool:
+    """检查一行是否是功能性规则（非注释、非空行）。"""
+    stripped = line.strip()
+    return bool(stripped) and not stripped.startswith(('#', ';', '//'))
+
+def parse_rule_key(rule_line: str) -> Optional[str]:
+    """从规则行中提取唯一的对比键（域名或IP）。"""
+    if not is_functional_rule(rule_line):
+        return None
+        
+    parts = [p.strip() for p in rule_line.strip().split(',', 2)]
+    if len(parts) < 3:
+        return None
+    
+    rule_type = parts[0].lower()
+    rule_value = parts[1].lower()
+
+    # DOMAIN-KEYWORD 的值可能与 DOMAIN-SUFFIX 或 HOST-SUFFIX 的值冲突，
+    # 故需要将类型作为键的一部分，确保唯一性。
+    if "keyword" in rule_type:
+        return f"{rule_type}:{rule_value}"
+    
+    # 其他类型的规则，直接使用值作为键。
+    return rule_value
+
+def convert_rule_line(line: str) -> Tuple[Optional[str], str]:
     """
-    1. 将 rule.list 中的 QX 格式规则转换为标准的、小写的规则格式。
-    2. 将转换后的规则内容同步（替换）到 loon/plugin/rule.plugin 文件中 [rule] 节后面的内容。
+    将 QX 格式规则转换为小写标准格式。
+    返回: (规则键, 转换后的规则行)
+    """
+    if not is_functional_rule(line):
+        return None, line
+
+    parts = [p.strip() for p in line.strip().split(',', 2)]
+    if len(parts) < 3:
+        return None, line
+
+    rule_type_upper = parts[0].upper()
+    rule_value = parts[1].lower() # 规则值转小写
+    policy = parts[2].lower()     # 策略组名称转小写
+    
+    new_rule_type = rule_type_upper
+    
+    # 规则类型转换逻辑
+    if rule_type_upper == "HOST":
+        new_rule_type = "DOMAIN" 
+    elif rule_type_upper == "HOST-SUFFIX":
+        new_rule_type = "DOMAIN-SUFFIX"
+    elif rule_type_upper == "HOST-KEYWORD":
+        new_rule_type = "DOMAIN-KEYWORD"
+    elif rule_type_upper == "HOST-WILDCARD":
+        new_rule_type = "DOMAIN-WILDCARD"
+    elif rule_type_upper == "IP6-CIDR": # QX 格式转标准格式
+        new_rule_type = "IP-CIDR6"    
+    elif rule_type_upper in ("IP-CIDR", "GEOIP", "GEOIP-CN", "FINAL"):
+        pass 
+    else:
+        # 无法识别的规则类型，返回 None，表示不转换/忽略
+        return None, line
+
+    # 构建转换后的标准规则，类型名称转小写
+    new_rule_line = f"{new_rule_type.lower()},{rule_value},{policy}\n"
+    key = parse_rule_key(new_rule_line)
+    
+    return key, new_rule_line
+
+
+def convert_and_sync_rules_to_loon_plugin_merge(repo_root_dir="."):
+    """
+    将 rule.list 中的 QX 规则转换为标准格式，并与 loon/plugin/rule.plugin 文件中 
+    [rule] 节的现有内容进行智能合并。
     """
     rule_list_path = os.path.join(repo_root_dir, "rule.list")
-    plugin_path = os.path.join(repo_root_dir, "loon", "plugin", "rule.plugin") # 目标文件路径
+    plugin_path = os.path.join(repo_root_dir, "loon", "plugin", "rule.plugin")
 
-    # --- 1. 检查文件是否存在 ---
-    if not os.path.exists(rule_list_path):
-        print(f"错误：找不到源文件 {rule_list_path}。请确认路径是否正确。")
+    # --- 1. 检查文件 ---
+    if not os.path.exists(rule_list_path) or not os.path.exists(plugin_path):
+        print("错误：源文件或目标文件不存在，请检查路径。")
         return
 
-    if not os.path.exists(plugin_path):
-        print(f"错误：目标文件 {plugin_path} 不存在。请先手动创建该文件。")
-        return
-
-    # --- 2. 读取 rule.list 的内容并进行转换 ---
-    converted_rules = []
+    # --- 2. 读取 rule.list 并构建新规则字典 (New Rules) ---
+    new_rules_map: Dict[str, str] = {}
     
     try:
         with open(rule_list_path, 'r', encoding='utf-8') as f:
             for line in f:
-                original_line = line # 保留原始行用于注释或非规则行
-                stripped_line = line.strip()
-                
-                # 忽略空行和注释，并保留原始行
-                if not stripped_line or stripped_line.startswith(('#', ';', '//')):
-                    # 如果需要保留注释和空行在 [rule] 节内，则直接添加
-                    converted_rules.append(original_line)
-                    continue
-                
-                parts = [p.strip() for p in stripped_line.split(',', 2)]
-                
-                if len(parts) < 3:
-                    print(f"警告: 规则格式不完整，已跳过: {stripped_line}")
-                    continue
-                    
-                # 统一转换为大写以便匹配
-                rule_type_upper = parts[0].upper()
-                rule_value = parts[1].lower() # 规则值转小写
-                policy = parts[2].lower()     # 策略组名称转小写
-                
-                # 规则类型转换逻辑
-                new_rule_type = rule_type_upper
-                
-                if rule_type_upper == "HOST":
-                    new_rule_type = "DOMAIN" 
-                elif rule_type_upper == "HOST-SUFFIX":
-                    new_rule_type = "DOMAIN-SUFFIX"
-                elif rule_type_upper == "HOST-KEYWORD":
-                    new_rule_type = "DOMAIN-KEYWORD"
-                elif rule_type_upper == "HOST-WILDCARD":
-                    new_rule_type = "DOMAIN-WILDCARD"
-                elif rule_type_upper in ("IP-CIDR", "IP-CIDR6", "GEOIP", "GEOIP-CN", "FINAL"):
-                    pass 
-                else:
-                    # 忽略其他不希望转换的规则类型
-                    continue
-                
-                # 构建转换后的标准规则，类型名称转小写
-                standard_rule = f"{new_rule_type.lower()},{rule_value},{policy}\n"
-                converted_rules.append(standard_rule)
-                
-    except Exception as e:
-        print(f"读取或处理 {rule_list_path} 文件时发生错误：{e}")
-        return
+                key, converted_line = convert_rule_line(line)
+                if key:
+                    new_rules_map[key] = converted_line
         
-    # 在转换后的规则前添加一个空行，美观
-    final_rules_to_insert = ["\n"] + converted_rules
+        # 检查是否有新规则被成功转换
+        if not new_rules_map:
+             print("警告：rule.list 中没有找到可识别并转换的规则，跳过同步。")
+             return
 
-    # --- 3. 处理 rule.plugin 文件并替换 [rule] 节 ---
+    except Exception as e:
+        print(f"读取或转换 {rule_list_path} 文件时发生错误：{e}")
+        return
+    
+    # --- 3. 处理 rule.plugin 文件并合并规则 ---
     try:
-        # 使用 'r+' 模式，以便读取后可以重置指针并写入
         with open(plugin_path, 'r+', encoding='utf-8') as f:
             plugin_lines = f.readlines()
             
             rule_section_start_index = -1
             rule_section_end_index = -1
-
-            # 找到 [rule] 节的起始行
+            old_rules_map: Dict[str, str] = {}
+            
+            # A. 找到 [rule] 节的起始行
             for i, line in enumerate(plugin_lines):
-                if line.strip().lower() == "[rule]": # 兼容大小写
+                if line.strip().lower() == "[rule]":
                     rule_section_start_index = i
                     break
             
@@ -90,23 +121,64 @@ def convert_and_sync_rules_to_loon_plugin(repo_root_dir="."):
                 print(f"错误：在 {plugin_path} 中未找到 [rule] 部分。无法同步规则。")
                 return 
 
-            # 找到 [rule] 部分的结束行（下一个以 '[' 开头的节，或者文件末尾）
+            # B. 找到 [rule] 部分的结束行，并解析现有规则
             for i in range(rule_section_start_index + 1, len(plugin_lines)):
-                stripped_line = plugin_lines[i].strip()
+                current_line = plugin_lines[i]
+                stripped_line = current_line.strip()
+                
                 # 找到下一个节标题
                 if stripped_line.startswith("[") and stripped_line.endswith("]"): 
                     rule_section_end_index = i
                     break
-            
+                
+                # 解析现有规则，构建旧规则字典
+                key = parse_rule_key(current_line)
+                if key:
+                    # 注意：这里存储的是旧文件中的原始行，以便合并时可以保留未修改的旧行
+                    old_rules_map[key] = current_line
+
             if rule_section_end_index == -1:
-                rule_section_end_index = len(plugin_lines) # 如果没有找到下一个节，就到文件末尾
+                rule_section_end_index = len(plugin_lines) # 直到文件末尾
 
-            # 构建新的文件内容
-            # 头部内容 (从文件开始到 [rule] 节)
-            new_plugin_content = plugin_lines[:rule_section_start_index + 1] # 包含 [rule] 这一行
 
-            # 插入来自 rule.list 转换后的新规则内容
-            new_plugin_content.extend(final_rules_to_insert)
+            # C. 构建合并后的规则块 (Merged Rule Block)
+            merged_rule_block: List[str] = []
+            
+            # 1. 遍历旧规则块的内容，进行覆盖/保留操作
+            for i in range(rule_section_start_index + 1, rule_section_end_index):
+                line = plugin_lines[i]
+                key = parse_rule_key(line)
+                
+                if key: # 如果是功能性规则
+                    if key in new_rules_map:
+                        # 冲突：使用新规则覆盖旧规则，并从新规则字典中移除，避免重复添加
+                        merged_rule_block.append(new_rules_map[key])
+                        del new_rules_map[key]
+                    else:
+                        # 无冲突：保留旧规则
+                        merged_rule_block.append(line)
+                else:
+                    # 非规则行（注释或空行）：保留在原位
+                    merged_rule_block.append(line)
+
+            # 2. 将所有剩余（即完全新增）的规则添加到块的末尾
+            if new_rules_map:
+                # 添加一个空行作为新增规则的分隔
+                merged_rule_block.append("\n# === Start of Newly Added Rules ===\n")
+                
+                # 将剩余的新规则按键排序后添加，以确保输出稳定
+                for key in sorted(new_rules_map.keys()):
+                    merged_rule_block.append(new_rules_map[key])
+                
+                merged_rule_block.append("\n# === End of Newly Added Rules ===\n")
+
+            # D. 重组并写入文件
+            
+            # 头部内容 (从文件开始到 [rule] 节，包含 [rule] 这一行)
+            new_plugin_content = plugin_lines[:rule_section_start_index + 1] 
+
+            # 插入合并后的规则块
+            new_plugin_content.extend(merged_rule_block)
 
             # 尾部内容 (从 [rule] 节结束后到文件末尾)
             new_plugin_content.extend(plugin_lines[rule_section_end_index:])
@@ -114,13 +186,12 @@ def convert_and_sync_rules_to_loon_plugin(repo_root_dir="."):
             # 写回文件
             f.seek(0)
             f.writelines(new_plugin_content)
-            f.truncate() # 清除旧内容中多余的部分
+            f.truncate() 
 
-        print(f"✅ 成功将 {rule_list_path} 中的 QX 规则转换为小写标准格式，并替换到 {plugin_path} 的 [rule] 节中。")
+        print(f"✅ 成功将 {rule_list_path} 中的 QX 规则与 {plugin_path} 中的现有规则进行了智能合并。")
 
     except Exception as e:
         print(f"处理 {plugin_path} 文件时发生错误：{e}")
 
-
 if __name__ == "__main__":
-    convert_and_sync_rules_to_loon_plugin()
+    convert_and_sync_rules_to_loon_plugin_merge()
