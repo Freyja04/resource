@@ -45,7 +45,7 @@ const nx = inArg.nx || false,
   bl = inArg.bl || false,
   nf = inArg.nf || false,
   key = inArg.key || false,
-  blgd = inArg.blgd || false,
+  blgd = inArg.blgd || true,
   blpx = inArg.blpx || false,
   blnx = inArg.blnx || false,
   numone = inArg.one || false,
@@ -84,9 +84,9 @@ const specialRegex = [
 const nameclear =
   /(群|邀请|返利|循环|官网|客服|网站|网址|获取|订阅|到期|机场|下次|版本|官址|备用|过期|已用|联系|邮箱|工单|余额|失联|邮件|贩卖|软件|证书|通知|倒卖|防止|国内|地址|频道|无法|说明|使用|提示|特别|访问|支持|TLS|AFF|USE|USED|TOTAL|EXPIRE|EMAIL|Panel)/i;
 // prettier-ignore
-const regexArray=[/ˣ²/, /ˣ³/, /ˣ⁴/, /ˣ⁵/, /ˣ⁶/, /ˣ⁷/, /ˣ⁸/, /ˣ⁹/, /ˣ¹⁰/, /ˣ²⁰/, /ˣ³⁰/, /ˣ⁴⁰/, /ˣ⁵⁰/, /IPLC/i, /IEPL/i, /核心/, /边缘/, /高级/, /标准/, /实验/, /商宽/, /家宽/, /游戏|game/i, /购物/, /专线/, /LB/, /cloudflare/i, /\budp\b/i, /\bgpt\b/i,/udpn\b/];
+const regexArray=[/ˣ²/, /ˣ³/, /ˣ⁴/, /ˣ⁵/, /ˣ⁶/, /ˣ⁷/, /ˣ⁸/, /ˣ⁹/, /ˣ¹⁰/, /ˣ²⁰/, /ˣ³⁰/, /ˣ⁴⁰/, /ˣ⁵⁰/, /IPLC/i, /IEPL/i, /核心/, /边缘/, /高级/, /标准/, /实验/, /商宽/, /家宽/, /游戏|game/i, /购物/, /专线/, /LB/];
 // prettier-ignore
-const valueArray= [ "2×","3×","4×","5×","6×","7×","8×","9×","10×","20×","30×","40×","50×","IPLC","IEPL","Kern","Edge","Pro","Std","Exp","Biz","Fam","Game","Buy","Zx","LB","CF","UDP","GPT","UDPN"];
+const valueArray= [ "2×","3×","4×","5×","6×","7×","8×","9×","10×","20×","30×","40×","50×","IPLC","IEPL","Kern","Edge","Pro","Std","Exp","Biz","Fam","Game","Buy","Zx","LB"];
 const nameblnx = /(高倍|(?!1)2+(x|倍)|ˣ²|ˣ³|ˣ⁴|ˣ⁵|ˣ¹⁰)/i;
 const namenx = /(高倍|(?!1)(0\.|\d)+(x|倍)|ˣ²|ˣ³|ˣ⁴|ˣ⁵|ˣ¹⁰)/i;
 const keya =
@@ -261,7 +261,7 @@ function operator(pro) {
     let firstName = "",
       nNames = "";
 
-    const WrappedFNAME = `【${FNAME}】`; 
+    const WrappedFNAME = `${FNAME}`; 
 
     if (nf) {
       firstName = WrappedFNAME;
