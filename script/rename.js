@@ -209,6 +209,10 @@ function operator(pro) {
     } else {
       delete e["block-quic"];
     }
+    
+    if (!e["client-fingerprint"]) {
+      e["client-fingerprint"] = "chrome";
+    }
 
     // 自定义
     if (!bktf && BLKEY) {
