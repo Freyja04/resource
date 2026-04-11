@@ -6,15 +6,15 @@
 # <LOON-BEGIN>
 
 # wx httpdns放行
-DOMAIN,dns.weixin.qq.com,DIRECT
-DOMAIN,dns.weixin.qq.com.cn,DIRECT
-IP-CIDR,42.81.232.18/32,DIRECT,no-resolve
-IP-CIDR,42.187.182.106/32,DIRECT,no-resolve
-IP-CIDR,42.187.182.123/32,DIRECT,no-resolve
-IP-CIDR,42.187.184.154/32,DIRECT,no-resolve
-IP-CIDR,123.151.54.50/32,DIRECT,no-resolve
-IP-CIDR6,2402:4e00:1900:1700:0:9554:1ad9:c3a/128,DIRECT,no-resolve
-IP-CIDR6,240e:928:1400:10::25/128,DIRECT,no-resolve
+# DOMAIN,dns.weixin.qq.com,DIRECT
+# DOMAIN,dns.weixin.qq.com.cn,DIRECT
+# IP-CIDR,42.81.232.18/32,DIRECT,no-resolve
+# IP-CIDR,42.187.182.106/32,DIRECT,no-resolve
+# IP-CIDR,42.187.182.123/32,DIRECT,no-resolve
+# IP-CIDR,42.187.184.154/32,DIRECT,no-resolve
+# IP-CIDR,123.151.54.50/32,DIRECT,no-resolve
+# IP-CIDR6,2402:4e00:1900:1700:0:9554:1ad9:c3a/128,DIRECT,no-resolve
+# IP-CIDR6,240e:928:1400:10::25/128,DIRECT,no-resolve
 
 # <LOON-END>
 
@@ -22,8 +22,6 @@ IP-CIDR6,240e:928:1400:10::25/128,DIRECT,no-resolve
 DOMAIN,msmp.abchina.com.cn,REJECT
 #虎牙直播
 DOMAIN-SUFFIX,p2p.huya.com,DIRECT
-#moontv
-DOMAIN-KEYWORD,douban,DIRECT
 #kelee资源直连
 DOMAIN-KEYWORD,kelee,DIRECT
 
