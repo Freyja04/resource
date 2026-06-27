@@ -99,7 +99,7 @@ const QC = ['Hong Kong','Macao','Taiwan','Japan','Korea','Singapore','United Sta
 
 const specialRegex = [
   /(\d\.)?\d+×/,                          // 匹配倍率（如 2×、1.5×）
-  /IPLC|IEPL|Kern|Edge|Pro|Std|Exp|Game|Buy|中转|优选|商宽|家宽|专线/i,  // 特殊线路类型
+  /IPLC|IEPL|Kern|Edge|Pro|Std|Exp|Game|Buy|中转|优选|商宽|家宽|专线|V6/i,  // 特殊线路类型
 ];
 // specialRegex: blpx= true 时按此分组排序，匹配第一组的优先，第二组其次
 
