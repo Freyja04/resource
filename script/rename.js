@@ -2,8 +2,8 @@
 // 布尔参数传 true/false或任意值启用，想关闭直接不传这个参数
 
 // nm: true/false 未匹配到地区时是否保留原节点；true 保留，false 过滤
-// clear: true/false 过滤含广告、订阅、到期、官网等垃圾关键词的节点
-// areaSort: 指定地区排序顺序，用英文逗号或中文逗号分隔，如 "香港,日本,美国"
+// clear: 追加过滤词，用英文逗号或中文逗号分隔；未传则只使用默认过滤词
+// dqpx: 指定地区排序顺序，用英文逗号或中文逗号分隔，如 "香港,日本,美国"
 
 //识别倍率标签、保留或过滤高倍率节点、标签节点排序
 // bl: true/false 从节点名中识别倍率并追加为倍率标记，如 2×、3×、2.5×
@@ -39,8 +39,6 @@ const addflag = inArg.flag || true,
   blgd = inArg.blgd || false,
   blpx = inArg.blpx || false,
   blnx = inArg.blnx || false,
-  clear = inArg.clear || false,
-  
   nm = inArg.nm || false;
 
 const FGF = inArg.fgf == undefined ? " " : decodeURI(inArg.fgf),
@@ -48,7 +46,8 @@ const FGF = inArg.fgf == undefined ? " " : decodeURI(inArg.fgf),
   BLKEY = inArg.blkey == undefined ? "" : decodeURI(inArg.blkey),
   blockquic = inArg.blockquic == undefined ? "" : decodeURI(inArg.blockquic);
 
-const areaSort = inArg.areaSort == undefined ? "" : decodeURI(inArg.areaSort);
+const clearRaw = inArg.clear == undefined ? "" : decodeURI(inArg.clear);
+const dqpx = inArg.dqpx == undefined ? "" : decodeURI(inArg.dqpx);
 const preferRaw = inArg.yx == undefined ? "" : decodeURI(inArg.yx);
 const pref = preferRaw ? (function() {
   var parts = preferRaw.split(/[,，]/).map(function(part) { return part.trim(); });
@@ -100,9 +99,12 @@ const specialRegex = [
 // specialRegex: blpx= true 时按此分组排序，匹配第一组的优先，第二组其次
 const chineseSpecialTags = ["中转", "优选", "商宽", "家宽", "专线"];
 
-const nameclear =
-  /(群|邀请|返利|循环|官网|网站|网址|到期|机场|版本|官址|备用|过期|邮箱|工单|余额|失联|邮件|通知|地址|频道|AFF|TOTAL|EXPIRE|EMAIL|Panel)/i;
-// nameclear: clear=true 时过滤的垃圾关键词
+const defaultNameclear = /(群|邀请|返利|循环|官网|网站|网址|到期|机场|版本|官址|备用|过期|邮箱|工单|余额|失联|邮件|通知|地址|频道|AFF|TOTAL|EXPIRE|EMAIL|Panel)/i;
+const clearWords = clearRaw.split(/[,，]/).map(function(word) { return word.trim(); }).filter(Boolean);
+const nameclear = clearWords.length
+  ? new RegExp(defaultNameclear.source + "|" + clearWords.map(escapeRegExp).join("|"), "i")
+  : defaultNameclear;
+// nameclear: 默认过滤词 + clear 传入的追加过滤词
 
 // prettier-ignore
 const regexArray=[/ˣ²/, /ˣ³/, /ˣ⁴/, /ˣ⁵/, /ˣ⁶/, /ˣ⁷/, /ˣ⁸/, /ˣ⁹/, /ˣ¹⁰/, /ˣ²⁰/, /ˣ³⁰/, /ˣ⁴⁰/, /ˣ⁵⁰/, /IPLC/i, /IEPL/i, /核心/, /边缘/, /高级/, /标准/, /实验/, /游戏|game/i, /购物/, /中转/, /优选/, /商宽/, /家宽/, /专线/, /V6/i,];
@@ -182,11 +184,11 @@ function operator(pro) {
   const AMK = Object.entries(Allmap);
   const rureEntries = Object.entries(rurekey);
 
-  if (clear || nx || blnx) {
+  if (nx || blnx || nameclear) {
     pro = pro.filter((res) => {
       const resname = res.name;
       const shouldKeep =
-        !(clear && nameclear.test(resname)) &&
+        !nameclear.test(resname) &&
         !(nx && namenx.test(resname)) &&
         !(blnx && !nameblnx.test(resname));
       return shouldKeep;
@@ -345,9 +347,14 @@ function operator(pro) {
 // prettier-ignore
 function getList(arg) { switch (arg) { case 'us': return EN; case 'gq': return FG; case 'quan': return QC; default: return ZH; }}
 
-// sortAndNumber: 统一处理 areaSort 排序、blpx 特殊节点后置和同名节点编号
+// escapeRegExp: 将 clear 传入的普通文本转成安全的正则文本
+function escapeRegExp(text) {
+  return text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+// sortAndNumber: 统一处理 dqpx 排序、blpx 特殊节点后置和同名节点编号
 function sortAndNumber(pro) {
-  var areas = areaSort ? areaSort.split(/[,，]/).map(function(area) { return area.trim(); }).filter(Boolean) : [];
+  var areas = dqpx ? dqpx.split(/[,，]/).map(function(area) { return area.trim(); }).filter(Boolean) : [];
   if (areas.length) {
     var buckets = areas.map(function() { return []; });
     var rest = [];
