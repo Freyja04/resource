@@ -1,68 +1,69 @@
-// ========== 1. 固定值常量（不可变） ==========
+// ------------------ 传参说明 ------------------
+// 布尔参数传 true/false或任意值启用，想关闭直接不传这个参数
+
+// nm: true/false 未匹配到地区时是否保留原节点；true 保留，false 过滤
+// clear: true/false 过滤含广告、订阅、到期、官网等垃圾关键词的节点
+// areaSort: 指定地区排序顺序，用英文逗号或中文逗号分隔，如 "香港,日本,美国"
+
+//识别倍率标签、保留或过滤高倍率节点、标签节点排序
+// bl: true/false 从节点名中识别倍率并追加为倍率标记，如 2×、3×、2.5×
+// nx: true/false 过滤掉高倍率节点
+// blnx: true/false 只保留高倍率节点
+// blgd: true/false 保留节点名中的固定倍率或线路标签，如 2×、IPLC、优选、V6
+// blpx: true/false 将带倍率或线路标签的特殊节点排到同地区普通节点后面
+// blkey: 自定义保留关键词，多个用 "+" 分隔，支持 "关键词>替换值"
+
+// 节点重命名
+// name: 自定义名称前缀或后缀；如果节点有 _subName，会优先使用 _subName
+// flag: true/false 在地区名左侧添加对应旗帜 emoji
+// nf: true/false 将 name 放到最终节点名前面；否则放到地区名前后方的默认位置
+// fgf: 最终节点名各部分之间的分隔符，默认空格
+// sn: 节点序号前的分隔符，默认空格
+
+// 优选ip或域名替换
+// yx: 优选 IP 替换配置，字段用英文逗号或中文逗号分隔
+// "香港,1.2.3.4"       → 匹配含「香港」的节点，协议不限
+// "香港,vless,1.2.3.4" → 关键词和协议都指定
+// ",,1.2.3.4"          → 匹配所有 VLESS+WS 和 VMess+WS 节点
+
+// in: 指定输入节点名中的地区格式；cn/zh 中文，us/en 英文代码，quan 英文全称，gq/flag 旗帜；未传则自动匹配
+// out: 指定输出节点名中的地区格式，取值同 in
+
+// blockquic: QUIC 设置；"on" 强制开启，"off" 强制关闭，其他值删除该字段
 
 const inArg = $arguments;
-// 传入的参数对象，包含所有用户自定义配置
-
-// ------------------ 布尔开关参数 ------------------
-// 以下值均从 inArg 读取，未传入时取默认值：
-// true = 启用该功能；false = 关闭
-const nx = inArg.nx || false,
-  // nx: 过滤掉高倍率节点（匹配 namenx 的节点会被移除）
+const addflag = inArg.flag || true,
+  nx = inArg.nx || false,
   bl = inArg.bl || false,
-  // bl: 启用正则匹配节点名中的倍率（如 "3×"、"2.5x"）
   nf = inArg.nf || false,
-  // nf: 自定义名称（FNAME）放在最终名称最前面
-  key = inArg.key || false,
-  // key: 只保留热门地区节点（港/新/日/美/韩/土），且节点名含数字 2/4/6/7
   blgd = inArg.blgd || false,
-  // blgd: 保留节点名中的固定格式倍率标记（如 2×、3×…50×、IPLC 等）
   blpx = inArg.blpx || false,
-  // blpx: 按特殊规则排序——specialRegex 匹配的节点排最后
   blnx = inArg.blnx || false,
-  // blnx: 只保留高倍率节点（匹配 nameblnx 的保留，其余过滤）
-  numone = inArg.one || false,
-  // numone: 去重处理，移除重复节点末尾的序号后缀
-  debug = inArg.debug || false,
-  // debug: 调试模式
   clear = inArg.clear || false,
-  // clear: 过滤含有垃圾关键词的节点
-  addflag = inArg.flag || false,
-  // addflag: 在地区名左侧添加对应旗帜 emoji
+  
   nm = inArg.nm || false;
-  // nm: 未匹配到地区时，true = 保留原名并追加 FNAME；false = 过滤掉
 
-// ------------------ 字符串参数 ------------------
 const FGF = inArg.fgf == undefined ? " " : decodeURI(inArg.fgf),
-  // FGF: 名称各部分之间的分隔符，默认空格
   XHFGF = inArg.sn == undefined ? " " : decodeURI(inArg.sn),
-  // XHFGF: 序号分隔符，同名称节点编号时拼接使用，默认空格
   BLKEY = inArg.blkey == undefined ? "" : decodeURI(inArg.blkey),
-  // BLKEY: 自定义关键词标记，多个用 "+" 分隔；支持 "关键词>替换值" 格式
   blockquic = inArg.blockquic == undefined ? "" : decodeURI(inArg.blockquic);
-  // blockquic: QUIC 设置，"on" = 强制开启，"off" = 强制关闭，其他值 = 删除该设置
 
-// ------------------ 优选替换参数 ------------------
-const preferRaw = inArg.prefer || "";
-// preferRaw: 优选替换配置，格式 "关键词 协议 IP" 或 "关键词 IP"
-//   字段用空格隔开
-//   关键词+IP:   "香港 1.2.3.4"         → 匹配含「香港」的节点，协议不限
-//   协议+IP:    " vless 1.2.3.4"       → 关键词空，匹配所有 VLESS+WS 节点
-//   完整格式:   "香港 vless 1.2.3.4"   → 关键词和协议都指定
-//   全部节点:   " 1.2.3.4"             → 匹配所有 VLESS+WS 和 VMess+WS 节点
+const areaSort = inArg.areaSort == undefined ? "" : decodeURI(inArg.areaSort);
+const preferRaw = inArg.yx == undefined ? "" : decodeURI(inArg.yx);
 const pref = preferRaw ? (function() {
-  var parts = preferRaw.split(/\s+/);
+  var parts = preferRaw.split(/[,，]/).map(function(part) { return part.trim(); });
   if (parts.length < 2) return null;
   if (parts.length === 2) {
     return {
-      keyword: parts[0].trim(),
+      keyword: parts[0],
       protocol: "",
-      ip: parts[1].trim()
+      ip: parts[1]
     };
   }
   return {
-    keyword: (parts[0] || "").trim(),
-    protocol: (parts[1] || "").trim().toLowerCase(),
-    ip: parts[2] ? parts[2].trim() : ""
+    keyword: parts[0] || "",
+    protocol: (parts[1] || "").toLowerCase(),
+    ip: parts[2] || ""
   };
 })() : null;
 
@@ -74,12 +75,7 @@ const nameMap = {
     gq: "gq", flag: "gq",
   },
   inname = nameMap[inArg.in] || "",
-  // inname: 输入节点名的地区格式缩写
-  //   "cn"/"zh" = 中文全称；"us"/"en" = 英文代码；
-  //   "quan" = 英文全称；"gq"/"flag" = 旗帜 emoji
-  //   空字符串 = 自动匹配所有格式
   outputName = nameMap[inArg.out] || "";
-  // outputName: 输出节点的地区格式缩写，值同上
 
 // ------------------ 地区对照表（索引一一对应） ------------------
 // prettier-ignore
@@ -102,9 +98,10 @@ const specialRegex = [
   /IPLC|IEPL|Kern|Edge|Pro|Std|Exp|Game|Buy|中转|优选|商宽|家宽|专线|V6/i,  // 特殊线路类型
 ];
 // specialRegex: blpx= true 时按此分组排序，匹配第一组的优先，第二组其次
+const chineseSpecialTags = ["中转", "优选", "商宽", "家宽", "专线"];
 
 const nameclear =
-  /(群|邀请|返利|循环|官网|客服|网站|网址|获取|订阅|到期|机场|下次|版本|官址|备用|过期|已用|联系|邮箱|工单|余额|失联|邮件|贩卖|软件|证书|通知|倒卖|防止|国内|地址|频道|无法|说明|使用|提示|特别|访问|支持|TLS|AFF|USE|USED|TOTAL|EXPIRE|EMAIL|Panel)/i;
+  /(群|邀请|返利|循环|官网|网站|网址|到期|机场|版本|官址|备用|过期|邮箱|工单|余额|失联|邮件|通知|地址|频道|AFF|TOTAL|EXPIRE|EMAIL|Panel)/i;
 // nameclear: clear=true 时过滤的垃圾关键词
 
 // prettier-ignore
@@ -121,77 +118,56 @@ const nameblnx = /(高倍|(?!1)2+(x|倍)|ˣ²|ˣ³|ˣ⁴|ˣ⁵|ˣ¹⁰)/i;
 const namenx = /(高倍|(?!1)(0\.|\d)+(x|倍)|ˣ²|ˣ³|ˣ⁴|ˣ⁵|ˣ¹⁰)/i;
 // namenx: nx=true 时的过滤规则——匹配高倍率节点（排除纯 "1x"）
 
-const keya =
-  /港|Hong|HK|新加坡|SG|Singapore|日本|Japan|JP|美国|United States|US|韩|土耳其|TR|Turkey|Korea|KR|🇸🇬|🇭🇰|🇯🇵|🇺🇸|🇰🇷|🇹🇷/i;
-// keya: 热门地区匹配规则（港/新/日/美/韩/土）
-
-const keyb =
-  /(((1|2|3|4)\d)|(香港|Hong|HK) 0[5-9]|((新加坡|SG|Singapore|日本|Japan|JP|美国|United States|US|韩|土耳其|TR|Turkey|Korea|KR) 0[3-9]))/i;
-// keyb: key=true 时的二次过滤——地区名后跟编号的，仅保留合理范围
-
 const rurekey = {
-  GB: /UK/g,
-  "B-G-P": /BGP/g,
-  "Russia Moscow": /Moscow/g,
-  "Korea Chuncheon": /Chuncheon|Seoul/g,
-  "Hong Kong": /Hongkong|HONG KONG/gi,
-  "United Kingdom London": /London|Great Britain/g,
-  "Dubai United Arab Emirates": /United Arab Emirates/g,
-  "Taiwan TW 台湾 🇹🇼": /(台|Tai\s?wan|TW).*?🇨🇳|🇨🇳.*?(台|Tai\s?wan|TW)/g,
-  "United States": /USA|Los Angeles|San Jose|Silicon Valley|Michigan/g,
-  澳大利亚: /澳洲|墨尔本|悉尼|土澳|(深|沪|呼|京|广|杭)澳/g,
-  德国: /(深|沪|呼|京|广|杭)德(?!.*(I|线))|法兰克福|滬德/g,
-  香港: /(深|沪|呼|京|广|杭)港(?!.*(I|线))/g,
-  日本: /(深|沪|呼|京|广|杭|中|辽)日(?!.*(I|线))|东京|大坂/g,
-  新加坡: /狮城|(深|沪|呼|京|广|杭)新/g,
-  美国: /(深|沪|呼|京|广|杭)美|波特兰|芝加哥|哥伦布|纽约|硅谷|俄勒冈|西雅图|芝加哥|美国|LA|US|us/g,
-  波斯尼亚和黑塞哥维那: /波黑共和国/g,
-  印尼: /印度尼西亚|雅加达/g,
-  印度: /孟买/g,
-  阿联酋: /迪拜|阿拉伯联合酋长国/g,
-  孟加拉国: /孟加拉/g,
-  捷克: /捷克共和国/g,
-  台湾: /新台|新北|台(?!.*线)/g,
-  Taiwan: /Taipei/g,
-  韩国: /春川|韩|首尔/g,
-  Japan: /Tokyo|Osaka/g,
-  英国: /伦敦/g,
-  India: /Mumbai/g,
-  Germany: /Frankfurt/g,
-  Switzerland: /Zurich/g,
-  俄罗斯: /莫斯科/g,
-  土耳其: /伊斯坦布尔/g,
-  泰国: /泰國|曼谷/g,
-  法国: /巴黎/g,
-  G: /\d\s?GB/gi,
-  Esnc: /esnc/gi,
+  GB: /UK/,
+  "B-G-P": /BGP/,
+  "Russia Moscow": /Moscow/,
+  "Korea Chuncheon": /Chuncheon|Seoul/,
+  "Hong Kong": /Hongkong|HONG KONG/i,
+  "United Kingdom London": /London|Great Britain/,
+  "Dubai United Arab Emirates": /United Arab Emirates/,
+  "Taiwan TW 台湾 🇹🇼": /(台|Tai\s?wan|TW).*?🇨🇳|🇨🇳.*?(台|Tai\s?wan|TW)/,
+  "United States": /USA|Los Angeles|San Jose|Silicon Valley|Michigan/,
+  澳大利亚: /澳洲|墨尔本|悉尼|土澳|(深|沪|呼|京|广|杭)澳/,
+  德国: /(深|沪|呼|京|广|杭)德(?!.*(I|线))|法兰克福|滬德/,
+  香港: /(深|沪|呼|京|广|杭)港(?!.*(I|线))/,
+  日本: /(深|沪|呼|京|广|杭|中|辽)日(?!.*(I|线))|东京|大坂/,
+  新加坡: /狮城|(深|沪|呼|京|广|杭)新/,
+  美国: /(深|沪|呼|京|广|杭)美|波特兰|芝加哥|哥伦布|纽约|硅谷|俄勒冈|西雅图|芝加哥|美国|LA|US|us/,
+  波斯尼亚和黑塞哥维那: /波黑共和国/,
+  印尼: /印度尼西亚|雅加达/,
+  印度: /孟买/,
+  阿联酋: /迪拜|阿拉伯联合酋长国/,
+  孟加拉国: /孟加拉/,
+  捷克: /捷克共和国/,
+  台湾: /新台|新北|台(?!.*线)/,
+  Taiwan: /Taipei/,
+  韩国: /春川|韩|首尔/,
+  Japan: /Tokyo|Osaka/,
+  英国: /伦敦/,
+  India: /Mumbai/,
+  Germany: /Frankfurt/,
+  Switzerland: /Zurich/,
+  俄罗斯: /莫斯科/,
+  土耳其: /伊斯坦布尔/,
+  泰国: /泰國|曼谷/,
+  法国: /巴黎/,
+  G: /\d\s?GB/i,
+  Esnc: /esnc/i,
 };
 // rurekey: 节点名替换映射，将英文/缩写替换为标准地区名称
 //   键 = 替换后的标准名称，值 = 匹配的正则
-//   例：/London|Great Britain/g → "United Kingdom London"
+//   例：/London|Great Britain/ → "United Kingdom London"
 
 // ========== 2. 可变变量（运行时修改） ==========
 
 let FNAME = inArg.name == undefined ? "" : decodeURI(inArg.name)
-// FNAME: 自定义名称前缀/后缀
-//   来自 inArg.name（URL 编码），默认空字符串
-//   在 operator() 循环中被 e._subName 覆盖
 
-let GetK = false, AMK = []
-// GetK: 标记 Allmap 是否已转为键值对数组，避免重复转换
-// AMK: Object.entries(Allmap) 的缓存结果，用于地区名查找匹配
-//   初始化 false/[]，首次调用 ObjKA() 后填充并设为 true
-
-function ObjKA(i) {
-  GetK = true
-  AMK = Object.entries(i)
-}
-
+// operator: 主处理函数，负责过滤、重命名、改写节点字段、排序和编号
 function operator(pro) {
   const Allmap = {};
   const outList = getList(outputName);
-  let inputList,
-    retainKey = "";
+  let inputList;
   if (inname !== "") {
     inputList = [getList(inname)];
   } else {
@@ -203,36 +179,38 @@ function operator(pro) {
       Allmap[value] = outList[valueIndex];
     });
   });
+  const AMK = Object.entries(Allmap);
+  const rureEntries = Object.entries(rurekey);
 
-  if (clear || nx || blnx || key) {
+  if (clear || nx || blnx) {
     pro = pro.filter((res) => {
       const resname = res.name;
       const shouldKeep =
         !(clear && nameclear.test(resname)) &&
         !(nx && namenx.test(resname)) &&
-        !(blnx && !nameblnx.test(resname)) &&
-        !(key && !(keya.test(resname) && /2|4|6|7/i.test(resname)));
+        !(blnx && !nameblnx.test(resname));
       return shouldKeep;
     });
   }
 
-  const BLKEYS = BLKEY ? BLKEY.split("+") : "";
+  const BLKEYS = BLKEY ? BLKEY.split("+") : [];
 
   pro.forEach((e) => {
     if(pro.length > 0) {
-      FNAME = e._subName
+      FNAME = e._subName || ""
     }
-    let bktf = false, ens = e.name
-    Object.keys(rurekey).forEach((ikey) => {
-      if (rurekey[ikey].test(e.name)) {
-        e.name = e.name.replace(rurekey[ikey], ikey);
+    let bktf = false, ens = e.name, retainKey = ""
+    rureEntries.forEach(([ikey, regex]) => {
+      if (regex.test(e.name)) {
+        var replaceRegex = new RegExp(regex.source, regex.ignoreCase ? "gi" : "g");
+        e.name = e.name.replace(replaceRegex, ikey);
       if (BLKEY) {
         bktf = true
         let BLKEY_REPLACE = "",
         re = false;
       BLKEYS.forEach((i) => {
         if (i.includes(">") && ens.includes(i.split(">")[0])) {
-          if (rurekey[ikey].test(i.split(">")[0])) {
+          if (regex.test(i.split(">")[0])) {
               e.name += " " + i.split(">")[0]
             }
           if (i.split(">")[1]) {
@@ -318,10 +296,9 @@ function operator(pro) {
       }
     }
 
-    !GetK && ObjKA(Allmap)
     // 匹配 Allkey 地区
-    const findKey = AMK.find(([key]) =>
-      e.name.includes(key)
+    const findKey = AMK.find(([regionName]) =>
+      e.name.includes(regionName)
     )
     
     let firstName = "",
@@ -335,7 +312,7 @@ function operator(pro) {
       nNames = WrappedFNAME;
     }
     if (findKey?.[1]) {
-      const findKeyValue = findKey[1];
+      const findKeyValue = findKey[1]; e._region = findKeyValue;
       let keyover = [],
         usflag = "";
       if (addflag) {
@@ -360,25 +337,95 @@ function operator(pro) {
     }
   });
   pro = pro.filter((e) => e.name !== null);
-  jxh(pro);
-  // 将固定格式标签（「优选」「V6」等）追加到编号之后
-  pro.forEach((e) => {
-    if (e._ikeys) {
-      e.name += FGF + e._ikeys;
-      delete e._ikeys;
-    }
-  });
-  numone && oneP(pro);
-  blpx && (pro = fampx(pro));
-  key && (pro = pro.filter((e) => !keyb.test(e.name)));
+  pro = sortAndNumber(pro);
   return pro;
 }
 
+// getList: 按地区格式返回对应的地区名称表
 // prettier-ignore
 function getList(arg) { switch (arg) { case 'us': return EN; case 'gq': return FG; case 'quan': return QC; default: return ZH; }}
-// prettier-ignore
-function jxh(e) { const n = e.reduce((e, n) => { const t = e.find((e) => e.name === n.name); if (t) { t.count++; t.items.push({ ...n, name: `${n.name}${XHFGF}${t.count.toString().padStart(2, "0")}`, }); } else { e.push({ name: n.name, count: 1, items: [{ ...n, name: `${n.name}${XHFGF}01` }], }); } return e; }, []);const t=(typeof Array.prototype.flatMap==='function'?n.flatMap((e) => e.items):n.reduce((acc, e) => acc.concat(e.items),[])); e.splice(0, e.length, ...t); return e;}
-// prettier-ignore
-function oneP(e) { const t = e.reduce((e, t) => { const n = t.name.replace(/[^A-Za-z0-9\u00C0-\u017F\u4E00-\u9FFF]+\d+$/, ""); if (!e[n]) { e[n] = []; } e[n].push(t); return e; }, {}); for (const e in t) { if (t[e].length === 1 && t[e][0].name.endsWith("01")) {/* const n = t[e][0]; n.name = e;*/ t[e][0].name= t[e][0].name.replace(/[^.]01/, "") } } return e; }
-// prettier-ignore
-function fampx(pro) { const wis = []; const wnout = []; for (const proxy of pro) { const fan = specialRegex.some((regex) => regex.test(proxy.name)); if (fan) { wis.push(proxy); } else { wnout.push(proxy); } } const sps = wis.map((proxy) => specialRegex.findIndex((regex) => regex.test(proxy.name)) ); wis.sort( (a, b) => sps[wis.indexOf(a)] - sps[wis.indexOf(b)] || a.name.localeCompare(b.name) ); wnout.sort((a, b) => pro.indexOf(a) - pro.indexOf(b)); return wnout.concat(wis);}
+
+// sortAndNumber: 统一处理 areaSort 排序、blpx 特殊节点后置和同名节点编号
+function sortAndNumber(pro) {
+  var areas = areaSort ? areaSort.split(/[,，]/).map(function(area) { return area.trim(); }).filter(Boolean) : [];
+  if (areas.length) {
+    var buckets = areas.map(function() { return []; });
+    var rest = [];
+    for (var i = 0; i < pro.length; i++) {
+      var node = pro[i], index = -1;
+      for (var a = 0; a < areas.length; a++) {
+        if ((node._region && node._region.includes(areas[a])) || (node.name && node.name.includes(areas[a]))) {
+          index = a;
+          break;
+        }
+      }
+      index === -1 ? rest.push(node) : buckets[index].push(node);
+    }
+    pro = buckets.reduce(function(acc, list) { return acc.concat(list); }, []).concat(rest);
+  }
+
+  if (blpx) {
+    var regions = [], regionMap = {}, ungrouped = [];
+    for (var j = 0; j < pro.length; j++) {
+      var proxy = pro[j];
+      if (proxy._region) {
+        if (!regionMap[proxy._region]) {
+          regionMap[proxy._region] = [];
+          regions.push(proxy._region);
+        }
+        regionMap[proxy._region].push(proxy);
+      } else {
+        ungrouped.push(proxy);
+      }
+    }
+
+    pro = [];
+    for (var r = 0; r < regions.length; r++) {
+      pro.push.apply(pro, sortSpecialLast(regionMap[regions[r]]));
+    }
+    if (ungrouped.length) {
+      pro.push.apply(pro, sortSpecialLast(ungrouped));
+    }
+  }
+
+  return numberSameName(pro);
+}
+
+// sortSpecialLast: 将同地区内的普通节点放前面，特殊节点放后面并按标签规则排序
+function sortSpecialLast(nodes) {
+  var normal = [], special = [];
+  for (var i = 0; i < nodes.length; i++) {
+    var node = nodes[i];
+    var name = node._ikeys ? node.name + FGF + node._ikeys : node.name;
+    var idx = specialRegex.findIndex(function(regex) { return regex.test(name); });
+    var cnIdx = chineseSpecialTags.findIndex(function(tag) { return name.indexOf(tag) !== -1; });
+    idx === -1 ? normal.push(node) : special.push({ node: node, idx: idx, cnIdx: cnIdx, name: name });
+  }
+  special.sort(function(a, b) {
+    if (a.cnIdx !== -1 && b.cnIdx !== -1 && a.cnIdx !== b.cnIdx) {
+      return a.cnIdx - b.cnIdx;
+    }
+    return a.idx - b.idx || a.name.localeCompare(b.name);
+  });
+  return normal.concat(special.map(function(item) { return item.node; }));
+}
+
+// numberSameName: 按相同节点名分组并追加 01、02 这类序号
+function numberSameName(pro) {
+  var groups = [], groupMap = Object.create(null);
+  for (var i = 0; i < pro.length; i++) {
+    var node = pro[i];
+    if (!groupMap[node.name]) {
+      groupMap[node.name] = { count: 0, items: [] };
+      groups.push(groupMap[node.name]);
+    }
+    var group = groupMap[node.name];
+    var item = { ...node, name: node.name + XHFGF + (++group.count).toString().padStart(2, "0") };
+    if (item._ikeys) {
+      item.name += FGF + item._ikeys;
+      delete item._ikeys;
+    }
+    group.items.push(item);
+  }
+  return groups.reduce(function(acc, group) { return acc.concat(group.items); }, []);
+}
