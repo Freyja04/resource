@@ -49,6 +49,7 @@
 // }
 
 const isNodeEnv = $substore && $substore.env && $substore.env.isNode === true;
+const tlsFeatureProtocols = ["vmess", "vless", "trojan", "anytls"];
 
 const inArg = $arguments;
 const addflag = inArg.flag || true,
@@ -119,8 +120,6 @@ const specialRegex = [
 ];
 // specialRegex: blpx= true 时按此分组排序，匹配第一组的优先，第二组其次
 const chineseSpecialTags = ["中转", "优选", "商宽", "家宽", "专线"];
-// 补全client-fingerprint的协议列表；delech单参数识别协议类型
-const tlsFeatureProtocols = ["vmess", "vless", "trojan", "anytls"];
 
 const defaultNameclear = /(群|邀请|返利|循环|官网|网站|网址|到期|机场|版本|官址|备用|过期|邮箱|工单|余额|失联|邮件|通知|地址|频道|AFF|TOTAL|EXPIRE|EMAIL|Panel)/i;
 const clearWords = splitCommaList(clearRaw);
