@@ -119,6 +119,8 @@ const specialRegex = [
 ];
 // specialRegex: blpx= true 时按此分组排序，匹配第一组的优先，第二组其次
 const chineseSpecialTags = ["中转", "优选", "商宽", "家宽", "专线"];
+// 补全client-fingerprint的协议列表；delech单参数识别协议类型
+const tlsFeatureProtocols = ["vmess", "vless", "trojan", "anytls"];
 
 const defaultNameclear = /(群|邀请|返利|循环|官网|网站|网址|到期|机场|版本|官址|备用|过期|邮箱|工单|余额|失联|邮件|通知|地址|频道|AFF|TOTAL|EXPIRE|EMAIL|Panel)/i;
 const clearWords = splitCommaList(clearRaw);
@@ -272,9 +274,7 @@ function operator(pro) {
       delete e["block-quic"];
     }
     
-    if (!e["client-fingerprint"]) {
-      e["client-fingerprint"] = "chrome";
-    }
+    addClientFingerprint(e);
 
     // 自定义
     if (!bktf && BLKEY) {
@@ -385,7 +385,7 @@ function parseDelechRule(raw) {
   if (!raw) return null;
   var parts = splitCommaList(raw);
   if (!parts.length) return null;
-  var protocols = ["vless", "vmess", "trojan", "ss", "hysteria2", "anytls"];
+  var protocols = tlsFeatureProtocols;
   if (parts.length === 1) {
     var only = parts[0].toLowerCase();
     if (protocols.indexOf(only) !== -1) {
@@ -394,6 +394,17 @@ function parseDelechRule(raw) {
     return { keyword: parts[0], protocol: "" };
   }
   return { keyword: parts[0], protocol: parts[1].toLowerCase() };
+}
+
+// addClientFingerprint: 仅给 Mihomo 支持 uTLS 指纹且未配置的协议补 chrome
+function addClientFingerprint(node) {
+  if (
+    node &&
+    !node["client-fingerprint"] &&
+    tlsFeatureProtocols.indexOf(String(node.type || "").toLowerCase()) !== -1
+  ) {
+    node["client-fingerprint"] = "chrome";
+  }
 }
 
 // deleteEchOpts: 仅在 delech 规则匹配时删除节点的 ech-opts 字段
