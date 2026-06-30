@@ -30,7 +30,7 @@
 // out: 指定输出节点名中的地区格式，取值同 in
 
 // blockquic: QUIC 设置；"on" 强制开启，"off" 强制关闭，其他值删除该字段
-// delech: 删除 ech-opts 规则；不传则不删除；可传 "香港"、"vless"、"香港,vless"
+// delech: 禁用 ech-opts 规则；不传则不处理；可传 "香港"、"vless"、"香港,vless"
 
 // substore获取当前运行环境
 // const isNodeEnv = $substore && $substore.env && $substore.env.isNode === true; 或
@@ -356,7 +356,7 @@ function operator(pro) {
         e.name = null;
       }
     }
-    deleteEchOpts(e);
+    disableEchOpts(e);
   });
   pro = pro.filter((e) => e.name !== null);
   pro = sortAndNumber(pro);
@@ -379,7 +379,7 @@ function splitCommaList(text, keepEmpty) {
   return keepEmpty ? parts : parts.filter(Boolean);
 }
 
-// parseDelechRule: 解析 ech-opts 删除规则；单个协议名按协议匹配，否则按节点名关键词匹配
+// parseDelechRule: 解析 ech-opts 禁用规则；单个协议名按协议匹配，否则按节点名关键词匹配
 function parseDelechRule(raw) {
   if (!raw) return null;
   var parts = splitCommaList(raw);
@@ -406,14 +406,14 @@ function addClientFingerprint(node) {
   }
 }
 
-// deleteEchOpts: 仅在 delech 规则匹配时删除节点的 ech-opts 字段
-function deleteEchOpts(node) {
+// disableEchOpts: 仅在 delech 规则匹配时将节点的 ech-opts.enable 设为 false
+function disableEchOpts(node) {
   if (!isNodeEnv || !delechRule || !node || !node.name) return;
   var matchName = node._ikeys ? node.name + FGF + node._ikeys : node.name;
   var keywordMatched = !delechRule.keyword || matchName.indexOf(delechRule.keyword) !== -1;
   var protocolMatched = !delechRule.protocol || String(node.type || "").toLowerCase() === delechRule.protocol;
-  if (keywordMatched && protocolMatched) {
-    delete node["ech-opts"];
+  if (keywordMatched && protocolMatched && node["ech-opts"]) {
+    node["ech-opts"].enable = false;
   }
 }
 
