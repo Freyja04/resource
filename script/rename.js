@@ -30,6 +30,25 @@
 // out: 指定输出节点名中的地区格式，取值同 in
 
 // blockquic: QUIC 设置；"on" 强制开启，"off" 强制关闭，其他值删除该字段
+// delech: 删除 ech-opts 规则；不传则不删除；可传 "香港"、"vless"、"香港,vless"
+
+// substore获取当前运行环境
+// const isNodeEnv = $substore && $substore.env && $substore.env.isNode === true; 或
+// const $ = $substore
+// console.log($.env.isNode)
+// {
+//   isQX: false,
+//   isLoon: false,
+//   isSurge: false,
+//   isNode: true,
+//   isStash: false,
+//   isShadowRocket: false,
+//   isEgern: false,
+//   isLanceX: false,
+//   isGUIforCores: false
+// }
+
+const isNodeEnv = $substore && $substore.env && $substore.env.isNode === true;
 
 const inArg = $arguments;
 const addflag = inArg.flag || true,
@@ -49,8 +68,10 @@ const FGF = inArg.fgf == undefined ? " " : decodeURI(inArg.fgf),
 const clearRaw = inArg.clear == undefined ? "" : decodeURI(inArg.clear);
 const dqpx = inArg.dqpx == undefined ? "" : decodeURI(inArg.dqpx);
 const preferRaw = inArg.yx == undefined ? "" : decodeURI(inArg.yx);
+const delechRaw = inArg.delech == undefined ? "" : decodeURI(inArg.delech);
+const delechRule = parseDelechRule(delechRaw);
 const pref = preferRaw ? (function() {
-  var parts = preferRaw.split(/[,，]/).map(function(part) { return part.trim(); });
+  var parts = splitCommaList(preferRaw, true);
   if (parts.length < 2) return null;
   if (parts.length === 2) {
     return {
@@ -100,7 +121,7 @@ const specialRegex = [
 const chineseSpecialTags = ["中转", "优选", "商宽", "家宽", "专线"];
 
 const defaultNameclear = /(群|邀请|返利|循环|官网|网站|网址|到期|机场|版本|官址|备用|过期|邮箱|工单|余额|失联|邮件|通知|地址|频道|AFF|TOTAL|EXPIRE|EMAIL|Panel)/i;
-const clearWords = clearRaw.split(/[,，]/).map(function(word) { return word.trim(); }).filter(Boolean);
+const clearWords = splitCommaList(clearRaw);
 const nameclear = clearWords.length
   ? new RegExp(defaultNameclear.source + "|" + clearWords.map(escapeRegExp).join("|"), "i")
   : defaultNameclear;
@@ -241,7 +262,6 @@ function operator(pro) {
       }
        if (isProtoMatch) {
          e.server = pref.ip;
-          delete e["ech-opts"];
         }
     }
     if (blockquic == "on") {
@@ -337,6 +357,7 @@ function operator(pro) {
         e.name = null;
       }
     }
+    deleteEchOpts(e);
   });
   pro = pro.filter((e) => e.name !== null);
   pro = sortAndNumber(pro);
@@ -352,9 +373,42 @@ function escapeRegExp(text) {
   return text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
+// splitCommaList: 统一按英文逗号或中文逗号拆分参数
+function splitCommaList(text, keepEmpty) {
+  if (!text) return [];
+  var parts = String(text).split(/[,，]/).map(function(part) { return part.trim(); });
+  return keepEmpty ? parts : parts.filter(Boolean);
+}
+
+// parseDelechRule: 解析 ech-opts 删除规则；单个协议名按协议匹配，否则按节点名关键词匹配
+function parseDelechRule(raw) {
+  if (!raw) return null;
+  var parts = splitCommaList(raw);
+  if (!parts.length) return null;
+  var protocols = ["vless", "vmess", "trojan", "ss", "hysteria2", "anytls"];
+  if (parts.length === 1) {
+    var only = parts[0].toLowerCase();
+    if (protocols.indexOf(only) !== -1) {
+      return { keyword: "", protocol: only };
+    }
+    return { keyword: parts[0], protocol: "" };
+  }
+  return { keyword: parts[0], protocol: parts[1].toLowerCase() };
+}
+
+// deleteEchOpts: 仅在 delech 规则匹配时删除节点的 ech-opts 字段
+function deleteEchOpts(node) {
+  if (!isNodeEnv || !delechRule || !node || !node.name) return;
+  var keywordMatched = !delechRule.keyword || node.name.indexOf(delechRule.keyword) !== -1;
+  var protocolMatched = !delechRule.protocol || String(node.type || "").toLowerCase() === delechRule.protocol;
+  if (keywordMatched && protocolMatched) {
+    delete node["ech-opts"];
+  }
+}
+
 // sortAndNumber: 统一处理 dqpx 排序、blpx 特殊节点后置和同名节点编号
 function sortAndNumber(pro) {
-  var areas = dqpx ? dqpx.split(/[,，]/).map(function(area) { return area.trim(); }).filter(Boolean) : [];
+  var areas = splitCommaList(dqpx);
   if (areas.length) {
     var buckets = areas.map(function() { return []; });
     var rest = [];
