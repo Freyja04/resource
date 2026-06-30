@@ -399,7 +399,8 @@ function parseDelechRule(raw) {
 // deleteEchOpts: 仅在 delech 规则匹配时删除节点的 ech-opts 字段
 function deleteEchOpts(node) {
   if (!isNodeEnv || !delechRule || !node || !node.name) return;
-  var keywordMatched = !delechRule.keyword || node.name.indexOf(delechRule.keyword) !== -1;
+  var matchName = node._ikeys ? node.name + FGF + node._ikeys : node.name;
+  var keywordMatched = !delechRule.keyword || matchName.indexOf(delechRule.keyword) !== -1;
   var protocolMatched = !delechRule.protocol || String(node.type || "").toLowerCase() === delechRule.protocol;
   if (keywordMatched && protocolMatched) {
     delete node["ech-opts"];
