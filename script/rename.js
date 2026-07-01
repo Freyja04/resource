@@ -20,36 +20,8 @@
 // fgf: 最终节点名各部分之间的分隔符，默认空格
 // sn: 节点序号前的分隔符，默认空格
 
-// 优选ip或域名替换
-// yx: 优选 IP 替换配置，字段用英文逗号或中文逗号分隔
-// "香港,1.2.3.4"       → 匹配含「香港」的节点，协议不限
-// "香港,vless,1.2.3.4" → 关键词和协议都指定
-// ",,1.2.3.4"          → 匹配所有 VLESS+WS 和 VMess+WS 节点
-
 // in: 指定输入节点名中的地区格式；cn/zh 中文，us/en 英文代码，quan 英文全称，gq/flag 旗帜；未传则自动匹配
 // out: 指定输出节点名中的地区格式，取值同 in
-
-// blockquic: QUIC 设置；"on" 强制开启，"off" 强制关闭，其他值删除该字段
-// delech: 禁用 ech-opts 规则；不传则不处理；可传 "香港"、"vless"、"香港,vless"
-
-// substore获取当前运行环境
-// const isNodeEnv = $substore && $substore.env && $substore.env.isNode === true; 或
-// const $ = $substore
-// console.log($.env.isNode)
-// {
-//   isQX: false,
-//   isLoon: false,
-//   isSurge: false,
-//   isNode: true,
-//   isStash: false,
-//   isShadowRocket: false,
-//   isEgern: false,
-//   isLanceX: false,
-//   isGUIforCores: false
-// }
-
-const isNodeEnv = $substore && $substore.env && $substore.env.isNode === true;
-const tlsFeatureProtocols = ["vmess", "vless", "trojan", "anytls"];
 
 const inArg = $arguments;
 const addflag = inArg.flag || true,
@@ -63,30 +35,10 @@ const addflag = inArg.flag || true,
 
 const FGF = inArg.fgf == undefined ? " " : decodeURI(inArg.fgf),
   XHFGF = inArg.sn == undefined ? " " : decodeURI(inArg.sn),
-  BLKEY = inArg.blkey == undefined ? "" : decodeURI(inArg.blkey),
-  blockquic = inArg.blockquic == undefined ? "" : decodeURI(inArg.blockquic);
+  BLKEY = inArg.blkey == undefined ? "" : decodeURI(inArg.blkey);
 
 const clearRaw = inArg.clear == undefined ? "" : decodeURI(inArg.clear);
 const dqpx = inArg.dqpx == undefined ? "" : decodeURI(inArg.dqpx);
-const preferRaw = inArg.yx == undefined ? "" : decodeURI(inArg.yx);
-const delechRaw = inArg.delech == undefined ? "" : decodeURI(inArg.delech);
-const delechRule = parseDelechRule(delechRaw);
-const pref = preferRaw ? (function() {
-  var parts = splitCommaList(preferRaw, true);
-  if (parts.length < 2) return null;
-  if (parts.length === 2) {
-    return {
-      keyword: parts[0],
-      protocol: "",
-      ip: parts[1]
-    };
-  }
-  return {
-    keyword: parts[0] || "",
-    protocol: (parts[1] || "").toLowerCase(),
-    ip: parts[2] || ""
-  };
-})() : null;
 
 // ------------------ 地区映射与语言选择 ------------------
 const nameMap = {
@@ -121,7 +73,7 @@ const specialRegex = [
 // specialRegex: blpx= true 时按此分组排序，匹配第一组的优先，第二组其次
 const chineseSpecialTags = ["中转", "优选", "商宽", "家宽", "专线"];
 
-const defaultNameclear = /(群|邀请|返利|循环|官网|网站|网址|到期|机场|版本|官址|备用|过期|邮箱|工单|余额|失联|邮件|通知|地址|频道|AFF|TOTAL|EXPIRE|EMAIL|Panel)/i;
+const defaultNameclear = /(群|邀请|返利|循环|官网|到期|机场|版本|备用|过期|邮箱|工单|余额|失联|邮件|通知|地址|频道|AFF|TOTAL|EXPIRE|EMAIL|Panel)/i;
 const clearWords = splitCommaList(clearRaw);
 const nameclear = clearWords.length
   ? new RegExp(defaultNameclear.source + "|" + clearWords.map(escapeRegExp).join("|"), "i")
@@ -252,29 +204,6 @@ function operator(pro) {
       });}
       }
     });
-    // 优选替换：rurekey 改名后匹配关键词
-    if (pref && pref.ip && (!pref.keyword || e.name.indexOf(pref.keyword) !== -1)) {
-      var isProtoMatch = false;
-      if (!pref.protocol || pref.protocol === "vless") {
-        if (e.type === "vless" && e.network === "ws") isProtoMatch = true;
-      }
-      if (!pref.protocol || pref.protocol === "vmess") {
-        if (e.type === "vmess" && e.network === "ws") isProtoMatch = true;
-      }
-       if (isProtoMatch) {
-         e.server = pref.ip;
-        }
-    }
-    if (blockquic == "on") {
-      e["block-quic"] = "on";
-    } else if (blockquic == "off") {
-      e["block-quic"] = "off";
-    } else {
-      delete e["block-quic"];
-    }
-    
-    addClientFingerprint(e);
-
     // 自定义
     if (!bktf && BLKEY) {
       let BLKEY_REPLACE = "",
@@ -356,7 +285,6 @@ function operator(pro) {
         e.name = null;
       }
     }
-    disableEchOpts(e);
   });
   pro = pro.filter((e) => e.name !== null);
   pro = sortAndNumber(pro);
@@ -377,44 +305,6 @@ function splitCommaList(text, keepEmpty) {
   if (!text) return [];
   var parts = String(text).split(/[,，]/).map(function(part) { return part.trim(); });
   return keepEmpty ? parts : parts.filter(Boolean);
-}
-
-// parseDelechRule: 解析 ech-opts 禁用规则；单个协议名按协议匹配，否则按节点名关键词匹配
-function parseDelechRule(raw) {
-  if (!raw) return null;
-  var parts = splitCommaList(raw);
-  if (!parts.length) return null;
-  var protocols = tlsFeatureProtocols;
-  if (parts.length === 1) {
-    var only = parts[0].toLowerCase();
-    if (protocols.indexOf(only) !== -1) {
-      return { keyword: "", protocol: only };
-    }
-    return { keyword: parts[0], protocol: "" };
-  }
-  return { keyword: parts[0], protocol: parts[1].toLowerCase() };
-}
-
-// addClientFingerprint: 仅给 Mihomo 支持 uTLS 指纹且未配置的协议补 chrome
-function addClientFingerprint(node) {
-  if (
-    node &&
-    !node["client-fingerprint"] &&
-    tlsFeatureProtocols.indexOf(String(node.type || "").toLowerCase()) !== -1
-  ) {
-    node["client-fingerprint"] = "chrome";
-  }
-}
-
-// disableEchOpts: 仅在 delech 规则匹配时将节点的 ech-opts.enable 设为 false
-function disableEchOpts(node) {
-  if (!isNodeEnv || !delechRule || !node || !node.name) return;
-  var matchName = node._ikeys ? node.name + FGF + node._ikeys : node.name;
-  var keywordMatched = !delechRule.keyword || matchName.indexOf(delechRule.keyword) !== -1;
-  var protocolMatched = !delechRule.protocol || String(node.type || "").toLowerCase() === delechRule.protocol;
-  if (keywordMatched && protocolMatched && node["ech-opts"]) {
-    node["ech-opts"].enable = false;
-  }
 }
 
 // sortAndNumber: 统一处理 dqpx 排序、blpx 特殊节点后置和同名节点编号
