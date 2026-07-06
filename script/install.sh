@@ -232,30 +232,6 @@ generate_short_id() {
     fi
 }
 
-generate_spider_x() {
-    local token
-
-    if command -v openssl >/dev/null 2>&1; then
-        token=$(openssl rand -base64 12 | tr -dc 'A-Za-z0-9' | head -c 16)
-    else
-        token=$(hexdump -n 8 -e '8/1 "%02x"' /dev/urandom)
-    fi
-
-    echo "/${token}"
-}
-
-generate_ws_path() {
-    local token
-
-    if command -v openssl >/dev/null 2>&1; then
-        token=$(openssl rand -base64 12 | tr -dc 'A-Za-z0-9' | head -c 16)
-    else
-        token=$(hexdump -n 8 -e '8/1 "%02x"' /dev/urandom)
-    fi
-
-    echo "/${token}"
-}
-
 url_encode() {
     local string="$1"
     local length=${#string}
@@ -369,7 +345,6 @@ write_vless_reality_config() {
     local short_id="$4"
     local sni="$5"
     local target_port="$6"
-    local spider_x="$7"
 
     if ! command -v python3 >/dev/null 2>&1; then
         warn "未找到 python3，正在安装 python3。"
@@ -393,7 +368,6 @@ write_vless_reality_config() {
     XRAY_SHORT_ID="$short_id" \
     XRAY_SNI="$sni" \
     XRAY_TARGET_PORT="$target_port" \
-    XRAY_SPIDER_X="$spider_x" \
     python3 <<'PY'
 import json
 import os
@@ -458,17 +432,16 @@ inbound = {
         "security": "reality",
         "realitySettings": {
             "show": False,
-            "target": f'{os.environ["XRAY_SNI"]}:{os.environ["XRAY_TARGET_PORT"]}',
+            "dest": f'{os.environ["XRAY_SNI"]}:{os.environ["XRAY_TARGET_PORT"]}',
             "xver": 0,
             "serverNames": [os.environ["XRAY_SNI"]],
             "privateKey": os.environ["XRAY_PRIVATE_KEY"],
             "shortIds": [os.environ["XRAY_SHORT_ID"]],
-            "spiderX": os.environ["XRAY_SPIDER_X"],
         },
     },
     "sniffing": {
         "enabled": True,
-        "destOverride": ["http", "tls", "quic"],
+        "destOverride": ["http", "tls"],
     },
 }
 
@@ -497,10 +470,9 @@ PY
 write_vless_ws_tls_config() {
     local listen_port="$1"
     local uuid="$2"
-    local host="$3"
-    local ws_path="$4"
-    local cert_file="$5"
-    local key_file="$6"
+    local ws_path="$3"
+    local cert_file="$4"
+    local key_file="$5"
 
     if ! command -v python3 >/dev/null 2>&1; then
         warn "未找到 python3，正在安装 python3。"
@@ -520,7 +492,6 @@ write_vless_ws_tls_config() {
     XRAY_CONFIG_FILE="$XRAY_CONFIG_FILE" \
     XRAY_LISTEN_PORT="$listen_port" \
     XRAY_UUID="$uuid" \
-    XRAY_HOST="$host" \
     XRAY_WS_PATH="$ws_path" \
     XRAY_CERT_FILE="$cert_file" \
     XRAY_KEY_FILE="$key_file" \
@@ -586,7 +557,6 @@ inbound = {
         "network": "ws",
         "security": "tls",
         "tlsSettings": {
-            "alpn": ["http/1.1"],
             "certificates": [
                 {
                     "certificateFile": os.environ["XRAY_CERT_FILE"],
@@ -596,14 +566,11 @@ inbound = {
         },
         "wsSettings": {
             "path": os.environ["XRAY_WS_PATH"],
-            "headers": {
-                "Host": os.environ["XRAY_HOST"],
-            },
         },
     },
     "sniffing": {
         "enabled": True,
-        "destOverride": ["http", "tls", "quic"],
+        "destOverride": ["http", "tls"],
     },
 }
 
@@ -640,8 +607,6 @@ generate_vless_reality_vision() {
     local private_key
     local public_key
     local short_id
-    local spider_x
-    local encoded_spider_x
     local node_name
     local vless_url
 
@@ -669,17 +634,15 @@ generate_vless_reality_vision() {
     private_key=$(echo "$keys" | awk -F': ' '/PrivateKey|Private key/ {print $2; exit}')
     public_key=$(echo "$keys" | awk -F': ' '/PublicKey|Public key|Password/ {print $2; exit}')
     short_id=$(generate_short_id)
-    spider_x=$(generate_spider_x)
-    encoded_spider_x=$(url_encode "$spider_x")
     node_name="VLESS_REALITY"
     server_for_url=$(format_server_for_url "$server")
 
-    if [[ -z "$uuid" || -z "$private_key" || -z "$public_key" || -z "$short_id" || -z "$spider_x" ]]; then
+    if [[ -z "$uuid" || -z "$private_key" || -z "$public_key" || -z "$short_id" ]]; then
         warn "参数生成失败，请确认 xray 命令可正常执行。"
         return
     fi
 
-    if ! write_vless_reality_config "$port" "$uuid" "$private_key" "$short_id" "$sni" "$target_port" "$spider_x"; then
+    if ! write_vless_reality_config "$port" "$uuid" "$private_key" "$short_id" "$sni" "$target_port"; then
         warn "写入 Xray 配置失败。请确认现有配置文件是标准 JSON 格式。"
         restore_last_config_backup
         return
@@ -689,7 +652,7 @@ generate_vless_reality_vision() {
         return
     fi
 
-    vless_url="vless://${uuid}@${server_for_url}:${port}?encryption=none&flow=xtls-rprx-vision&fp=chrome&pbk=${public_key}&security=reality&sid=${short_id}&sni=${sni}&spx=${encoded_spider_x}&type=tcp&headerType=none#${node_name}"
+    vless_url="vless://${uuid}@${server_for_url}:${port}?encryption=none&flow=xtls-rprx-vision&fp=chrome&pbk=${public_key}&security=reality&sid=${short_id}&sni=${sni}&spx=%2F&type=tcp#${node_name}"
 
     echo
     echo "---------- VLESS Reality 节点信息 ----------"
@@ -733,7 +696,7 @@ generate_vless_ws_tls() {
     fi
 
     uuid=$(xray uuid)
-    ws_path=$(generate_ws_path)
+    ws_path="/ws"
     encoded_ws_path=$(url_encode "$ws_path")
     node_name="VLESS_WS_TLS"
     server="$host"
@@ -744,7 +707,7 @@ generate_vless_ws_tls() {
         return
     fi
 
-    if ! write_vless_ws_tls_config "$listen_port" "$uuid" "$host" "$ws_path" "$cert_file" "$key_file"; then
+    if ! write_vless_ws_tls_config "$listen_port" "$uuid" "$ws_path" "$cert_file" "$key_file"; then
         warn "写入 Xray 配置失败。请确认现有配置文件是标准 JSON 格式。"
         restore_last_config_backup
         return
