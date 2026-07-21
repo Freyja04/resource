@@ -43,6 +43,7 @@ async function operator(proxies) {
     for (const endpoint of endpoints) {
       result.push({
         ...proxy,
+        name: `${proxy.name || ''} 优选`,
         server: endpoint.server,
         port: endpoint.port || proxy.port,
       })
