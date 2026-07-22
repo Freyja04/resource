@@ -68,7 +68,7 @@ const specialRegex = [
   /IPLC|IEPL|Kern|Edge|Pro|Std|Exp|Game|Buy|中转|优选|商宽|家宽|专线|V6/i,  // 特殊线路类型
 ];
 // specialRegex: blpx= true 时按此分组排序，匹配第一组的优先，第二组其次
-const chineseSpecialTags = ["Reality","中转", "优选", "商宽", "家宽", "专线"];
+const chineseSpecialTags = ["中转", "优选", "商宽", "家宽", "专线"];
 
 const defaultNameclear = /(群|邀请|返利|循环|官网|到期|机场|版本|备用|过期|邮箱|工单|余额|失联|邮件|通知|频道|AFF|TOTAL|EXPIRE|EMAIL|Panel)/i;
 const clearWords = splitCommaList(clearRaw);
@@ -78,11 +78,11 @@ const nameclear = clearWords.length
 // nameclear: 默认过滤词 + clear 传入的追加过滤词
 
 // prettier-ignore
-const regexArray=[/ˣ²/, /ˣ³/, /ˣ⁴/, /ˣ⁵/, /ˣ⁶/, /ˣ⁷/, /ˣ⁸/, /ˣ⁹/, /ˣ¹⁰/, /ˣ²⁰/, /ˣ³⁰/, /ˣ⁴⁰/, /ˣ⁵⁰/, /IPLC/i, /IEPL/i, /核心/, /边缘/, /高级/, /标准/, /实验/, /游戏|game/i, /购物/, /REALITY/i, /中转/, /优选/, /商宽/, /家宽/, /专线/, /V6/i,];
+const regexArray=[/ˣ²/, /ˣ³/, /ˣ⁴/, /ˣ⁵/, /ˣ⁶/, /ˣ⁷/, /ˣ⁸/, /ˣ⁹/, /ˣ¹⁰/, /ˣ²⁰/, /ˣ³⁰/, /ˣ⁴⁰/, /ˣ⁵⁰/, /IPLC/i, /IEPL/i, /核心/, /边缘/, /高级/, /标准/, /实验/, /游戏|game/i, /购物/, /中转/, /优选/, /商宽/, /家宽/, /专线/, /V6/i,];
 // regexArray: blgd=true 时匹配固定格式倍率/线路类型的正则列表
 
 // prettier-ignore
-const valueArray= [ "2×","3×","4×","5×","6×","7×","8×","9×","10×","20×","30×","40×","50×","「IPLC」","「IEPL」","「Kern」","「Edge」","「Pro」","「Std」","「Exp」","「Game」","「Buy」","「Reality」","「中转」","「优选」","「商宽」","「家宽」","「专线」","「V6」"];
+const valueArray= [ "2×","3×","4×","5×","6×","7×","8×","9×","10×","20×","30×","40×","50×","「IPLC」","「IEPL」","「Kern」","「Edge」","「Pro」","「Std」","「Exp」","「Game」","「Buy」","「中转」","「优选」","「商宽」","「家宽」","「专线」","「V6」"];
 // valueArray: 与 regexArray 一一对应的替换值
 
 const nameblnx = /(高倍|(?!1)2+(x|倍)|ˣ²|ˣ³|ˣ⁴|ˣ⁵|ˣ¹⁰)/i;
