@@ -7,7 +7,10 @@ async function operator(proxies) {
   const protocolFilter = inArg.yx === undefined
     ? ''
     : decodeURI(inArg.yx).trim().toLowerCase()
-  const LOCAL_LIST = 'http://127.0.0.1:38324/api/file/cfip'
+  const isNodeEnv = $substore && $substore.env && $substore.env.isNode === true
+  const LOCAL_LIST = isNodeEnv
+    ? 'http://127.0.0.1:38324/api/file/cfip'
+    : 'https://sub.store/api/file/cfip'
   const REMOTE_LIST = 'https://raw.githubusercontent.com/Freyja04/resource/main/cfyx.txt'
   const useRemoteList = String(inArg.remote ?? '').trim().toLowerCase() === 'true'
   const endpointList = useRemoteList ? REMOTE_LIST : LOCAL_LIST
