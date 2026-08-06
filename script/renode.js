@@ -2,7 +2,7 @@
 // 本脚本用于已完成重命名的节点列表，建议放在重命名脚本之后执行
 
 // delech: 禁用 ech-opts 规则；不传则不处理；可传 "香港"、"vless"、"香港,vless"
-// blockquic: QUIC 设置；"on" 强制开启，"off" 强制关闭，其他值删除该字段
+// blockquic: 按节点类型设置 block-quic；可传 "vless"、"vless,vmess"，分隔符支持 , 或 ，
 // 自动添加 client-fingerprint: 给 Mihomo 支持 uTLS 指纹且未配置的协议补 chrome
 
 // 获取当前运行环境
@@ -22,7 +22,7 @@ const isNodeEnv = $substore && $substore.env && $substore.env.isNode === true;
 const tlsFeatureProtocols = ["vmess", "vless", "trojan", "anytls"];
 
 const inArg = $arguments;
-const blockquic = inArg.blockquic == undefined ? "" : decodeURI(inArg.blockquic);
+const blockquicTypes = parseBlockquicRule(inArg.blockquic);
 
 const delechRaw = inArg.delech == undefined ? "" : decodeURI(inArg.delech);
 const delechRule = parseDelechRule(delechRaw);
@@ -37,15 +37,11 @@ function operator(pro) {
   return pro;
 }
 
-// setBlockQuic: 根据 blockquic 参数设置、关闭或删除 block-quic 字段
+// setBlockQuic: 将匹配到的节点类型的 block-quic 设为 on；不传或参数无效则保留原样
 function setBlockQuic(node) {
-  if (!node) return;
-  if (blockquic == "on") {
+  if (!node || !blockquicTypes) return;
+  if (blockquicTypes.indexOf(String(node.type || "").toLowerCase()) !== -1) {
     node["block-quic"] = "on";
-  } else if (blockquic == "off") {
-    node["block-quic"] = "off";
-  } else {
-    delete node["block-quic"];
   }
 }
 
@@ -68,6 +64,20 @@ function disableEchOpts(node) {
   if (keywordMatched && protocolMatched && node["ech-opts"]) {
     node["ech-opts"].enable = false;
   }
+}
+
+// parseBlockquicRule: 解析 blockquic 参数，仅接受白名单协议类型；无效值不处理
+function parseBlockquicRule(raw) {
+  if (raw == undefined) return null;
+  var parts = splitCommaList(decodeURI(raw));
+  if (!parts.length) return null;
+  var types = [];
+  for (var i = 0; i < parts.length; i++) {
+    var type = parts[i].toLowerCase();
+    if (tlsFeatureProtocols.indexOf(type) === -1) return null;
+    if (types.indexOf(type) === -1) types.push(type);
+  }
+  return types;
 }
 
 // parseDelechRule: 解析 delech 参数；单个协议按协议匹配，否则按最终节点名关键词匹配
