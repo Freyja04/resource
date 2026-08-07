@@ -6,7 +6,7 @@ async function operator(proxies) {
   const protocolFilter = inArg.yx === undefined
     ? ''
     : decodeURI(inArg.yx).trim().toLowerCase()
-  const REMOTE_LIST = 'https://raw.githubusercontent.com/Freyja04/resource/main/cfyx.txt'
+  const REMOTE_LIST = 'https://raw.githubusercontent.com/Freyja04/resource/main/script/cfyx.txt'
 
   let body
   try {
