@@ -1,20 +1,32 @@
 // Sub-Store operator script.
-// Replaces VLESS/VMess WebSocket proxies' servers with every endpoint in REMOTE_LIST.
+// Replaces VLESS/VMess WebSocket proxies' servers with local endpoints when set,
+// otherwise every endpoint in REMOTE_LIST.
 async function operator(proxies) {
   const $ = $substore
   const inArg = $arguments || {}
   const protocolFilter = inArg.yx === undefined
     ? ''
     : decodeURI(inArg.yx).trim().toLowerCase()
+  // One endpoint per line. Supported forms: example.com, example.com:443#HK, 1.2.3.4#US.
+  // Keep this empty to use REMOTE_LIST.
+  const LOCAL_LIST = `
+  cf.877774.xyz
+  yx1.sleeple2s.ccwu.cc
+  yx2.sleeple2s.ccwu.cc
+`
   const REMOTE_LIST = 'https://raw.githubusercontent.com/Freyja04/resource/main/script/cfyx.txt'
 
-  let body
-  try {
-    const response = await $.http.get({ url: REMOTE_LIST })
-    body = response?.body || ''
-  } catch (error) {
-    $.error(`Failed to fetch ${REMOTE_LIST}: ${error.message ?? error}`)
-    return proxies
+  let body = LOCAL_LIST
+  let source = 'LOCAL_LIST'
+  if (!body.trim()) {
+    try {
+      const response = await $.http.get({ url: REMOTE_LIST })
+      body = response?.body || ''
+      source = REMOTE_LIST
+    } catch (error) {
+      $.error(`Failed to fetch ${REMOTE_LIST}: ${error.message ?? error}`)
+      return proxies
+    }
   }
 
   const endpoints = []
@@ -26,7 +38,7 @@ async function operator(proxies) {
   }
 
   if (endpoints.length === 0) {
-    $.error(`No usable endpoints found in ${REMOTE_LIST}`)
+    $.error(`No usable endpoints found in ${source}`)
     return proxies
   }
 
