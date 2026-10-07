@@ -11,6 +11,7 @@ async function operator(proxies) {
   // Keep this empty to use REMOTE_LIST.
   const LOCAL_LIST = `
   cf.877774.xyz
+  nova97.cf.090227.xyz
   yx1.sleeple2s.ccwu.cc
   yx2.sleeple2s.ccwu.cc
 `
