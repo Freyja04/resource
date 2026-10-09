@@ -10,8 +10,14 @@ async function operator(proxies) {
   // One endpoint per line. Supported forms: example.com, example.com:443#HK, 1.2.3.4#US.
   // Keep this empty to use REMOTE_LIST.
   const LOCAL_LIST = `
-  cf.877774.xyz
-  yx1.sleeple2s.ccwu.cc
+    cf.877774.xyz
+    cloudflare.182682.xyz
+    bestcf.top
+    cf.0sm.com
+    cfip.1323123.xyz
+    cnamefuckxxs.yuchen.icu
+    cloudflare-ip.mofashi.ltd
+    cdn.tzpro.xyz
 `
   const REMOTE_LIST = 'https://raw.githubusercontent.com/Freyja04/resource/main/script/cfyx.txt'
 
