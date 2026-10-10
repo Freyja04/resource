@@ -20,6 +20,8 @@ HYSTERIA_CONFIG_FILE="/etc/hysteria/config.yaml"
 DOMAIN_CERT_DIR="/etc/domain/certs"
 LAST_CONFIG_BACKUP=""
 LAST_HYSTERIA_CONFIG_BACKUP=""
+SELECTED_CERT_FILE=""
+SELECTED_KEY_FILE=""
 
 error() {
     echo -e "\n${red}输入错误!${none}\n"
@@ -755,6 +757,82 @@ read_existing_file() {
     done
 }
 
+confirm_use_wildcard_cert() {
+    local answer
+
+    while :; do
+        read -rp "$(echo -e "是否使用泛域名证书路径? [${green}Y${none}/n]: ")" answer
+        case "${answer,,}" in
+        "" | y | yes)
+            return 0
+            ;;
+        n | no)
+            return 1
+            ;;
+        *)
+            error >&2
+            ;;
+        esac
+    done
+}
+
+list_wildcard_certs() {
+    local cert
+    local key
+
+    [[ -d "$DOMAIN_CERT_DIR" ]] || return 0
+
+    for cert in "$DOMAIN_CERT_DIR"/*.fullchain.cer; do
+        [[ -f "$cert" ]] || continue
+        [[ "$(basename "$cert")" =~ ^\*\.(.+)\.fullchain\.cer$ ]] || continue
+        key="${cert%.fullchain.cer}.key"
+        [[ -f "$key" ]] || continue
+        printf '%s\n' "$cert"
+    done
+}
+
+select_wildcard_cert() {
+    local certs
+    local cert
+    local count=0
+    local choice
+    local index
+
+    certs=$(list_wildcard_certs)
+    if [[ -z "$certs" ]]; then
+        warn "未在 ${DOMAIN_CERT_DIR} 找到可用的泛域名证书（*.xxx.com）。"
+        notice "请先通过『申请域名证书』→『Cloudflare DNS API』申请泛域名证书。"
+        return 1
+    fi
+
+    echo
+    echo "---------- 已存在的泛域名证书 ----------"
+    while IFS= read -r cert; do
+        count=$((count + 1))
+        echo "  ${count}. ${cert}"
+    done <<< "$certs"
+    echo "---------------------------------------"
+
+    read -rp "请选择要使用的证书 [1-${count}]: " choice
+    if ! [[ "$choice" =~ ^[0-9]+$ ]] || ((choice < 1 || choice > count)); then
+        warn "无效的选择，已取消。"
+        return 1
+    fi
+
+    index=0
+    while IFS= read -r cert; do
+        index=$((index + 1))
+        if [[ "$index" -eq "$choice" ]]; then
+            SELECTED_CERT_FILE="$cert"
+            SELECTED_KEY_FILE="${cert%.fullchain.cer}.key"
+            return 0
+        fi
+    done <<< "$certs"
+
+    warn "无效的选择，已取消。"
+    return 1
+}
+
 restart_xray() {
     if command -v systemctl >/dev/null 2>&1; then
         systemctl restart xray
@@ -1119,6 +1197,62 @@ with config_file.open("w", encoding="utf-8") as f:
 PY
 }
 
+write_vless_xhttp_config() {
+    local port="$1" uuid="$2" path="$3" cert_file="$4" key_file="$5"
+    if ! command -v python3 >/dev/null 2>&1; then
+        warn "未找到 python3，正在安装 python3。"
+        sudo apt update && sudo apt install -y python3 || return 1
+    fi
+    if [[ -f "$XRAY_CONFIG_FILE" ]]; then
+        LAST_CONFIG_BACKUP="${XRAY_CONFIG_FILE}.bak.$(date +%Y%m%d%H%M%S)"
+        cp "$XRAY_CONFIG_FILE" "$LAST_CONFIG_BACKUP" || return 1
+    else LAST_CONFIG_BACKUP=""; fi
+    mkdir -p "$(dirname "$XRAY_CONFIG_FILE")" || return 1
+    XRAY_CONFIG_FILE="$XRAY_CONFIG_FILE" XRAY_LISTEN_PORT="$port" XRAY_UUID="$uuid" XRAY_XHTTP_PATH="$path" XRAY_CERT_FILE="$cert_file" XRAY_KEY_FILE="$key_file" python3 <<'PY'
+import json, os
+from pathlib import Path
+f=Path(os.environ['XRAY_CONFIG_FILE'])
+c=json.loads(f.read_text()) if f.exists() and f.stat().st_size else {'log':{'loglevel':'warning'},'inbounds':[],'outbounds':[{'tag':'direct','protocol':'freedom'}]}
+if not isinstance(c, dict): raise ValueError('Xray 配置根节点必须是 JSON 对象')
+ins=c.setdefault('inbounds',[])
+if not isinstance(ins, list): raise ValueError('inbounds 必须是数组')
+port=int(os.environ['XRAY_LISTEN_PORT'])
+for x in ins:
+    if isinstance(x,dict) and x.get('port')==port and x.get('tag')!='vless-xhttp': raise ValueError(f'端口 {port} 已被占用')
+i={'tag':'vless-xhttp','listen':'0.0.0.0','port':port,'protocol':'vless','settings':{'clients':[{'id':os.environ['XRAY_UUID']}],'decryption':'none'},'streamSettings':{'network':'xhttp','security':'tls','tlsSettings':{'certificates':[{'certificateFile':os.environ['XRAY_CERT_FILE'],'keyFile':os.environ['XRAY_KEY_FILE']}]},'xhttpSettings':{'path':os.environ['XRAY_XHTTP_PATH'],'mode':'auto'}},'sniffing':{'enabled':True,'destOverride':['http','tls']}}
+for n,x in enumerate(ins):
+    if isinstance(x,dict) and x.get('tag')=='vless-xhttp': ins[n]=i; break
+else: ins.append(i)
+f.write_text(json.dumps(c,ensure_ascii=False,indent=2)+'\n')
+PY
+}
+
+generate_vless_xhttp() {
+    local domain port cert_file key_file uuid path vless_url
+    command -v xray >/dev/null 2>&1 || { warn "未找到 xray 命令，请先安装 xray。"; return 1; }
+    echo -e "${yellow}生成 vless+xhttp+tls 节点${none}"
+    domain=$(read_required "请输入连接域名（证书须包含此域名）: ")
+    [[ "$domain" =~ ^([a-zA-Z0-9]([a-zA-Z0-9-]*[a-zA-Z0-9])?\.)+[a-zA-Z]{2,}$ ]] || { warn "域名格式无效。"; return 1; }
+    port=$(read_port "请输入端口 [默认 2096]: " "2096")
+    if confirm_use_wildcard_cert; then
+        if ! select_wildcard_cert; then
+            return 1
+        fi
+        cert_file="$SELECTED_CERT_FILE"
+        key_file="$SELECTED_KEY_FILE"
+        ok "已使用泛域名证书: ${SELECTED_CERT_FILE}"
+        ok "已使用泛域名私钥: ${SELECTED_KEY_FILE}"
+    else
+        cert_file=$(read_existing_file "请输入 TLS 证书 fullchain 路径: ")
+        key_file=$(read_existing_file "请输入 TLS 私钥路径: ")
+    fi
+    uuid=$(xray uuid); path="/xhttp"
+    [[ -n "$uuid" ]] || { warn "生成 UUID 失败。"; return 1; }
+    write_vless_xhttp_config "$port" "$uuid" "$path" "$cert_file" "$key_file" || { warn "写入 Xray 配置失败。"; [[ -n "$LAST_CONFIG_BACKUP" ]] && restore_last_config_backup; return 1; }
+    restart_and_check_xray || return 1
+    vless_url="vless://${uuid}@${domain}:${port}?encryption=none&security=tls&sni=${domain}&type=xhttp&path=$(url_encode "$path")&mode=auto#VLESS_XHTTP"
+    echo; echo "---------- VLESS XHTTP 节点信息 ----------"; echo -e "${green}${vless_url}${none}"; echo "-------------------------------------------"
+}
 generate_vless_reality_vision() {
     local server
     local server_for_url
@@ -1210,8 +1344,18 @@ generate_vless_ws_tls() {
     client_port=$(read_port "请输入客户端连接端口 [默认 443]: " "443")
     listen_port=$(read_port "请输入 Xray 监听端口 [默认 8443]: " "8443")
     echo -e "${yellow}提示: Xray 服务通常以 nobody 用户运行，证书和私钥文件需要允许 Xray 读取。${none}"
-    cert_file=$(read_existing_file "请输入 TLS 证书文件路径 fullchain: ")
-    key_file=$(read_existing_file "请输入 TLS 私钥文件路径 private key: ")
+    if confirm_use_wildcard_cert; then
+        if ! select_wildcard_cert; then
+            return 1
+        fi
+        cert_file="$SELECTED_CERT_FILE"
+        key_file="$SELECTED_KEY_FILE"
+        ok "已使用泛域名证书: ${SELECTED_CERT_FILE}"
+        ok "已使用泛域名私钥: ${SELECTED_KEY_FILE}"
+    else
+        cert_file=$(read_existing_file "请输入 TLS 证书文件路径 fullchain: ")
+        key_file=$(read_existing_file "请输入 TLS 私钥文件路径 private key: ")
+    fi
 
     if [[ "$host" == *:* || "$host" == */* ]]; then
         warn "Host/SNI 必须是域名，不能包含端口或路径。"
@@ -1355,7 +1499,7 @@ ensure_acme_cron() {
     local acme_cmd
     local cron_service
 
-    acme_cmd=$(get_acme_cmd)
+    acme_cmd="${1:-$(get_acme_cmd)}"
     if [[ -z "$acme_cmd" ]]; then
         warn "未找到 acme.sh，无法设置自动续签。"
         return 1
@@ -1502,6 +1646,138 @@ issue_http_cert() {
     else
         echo "acme.sh 已设置自动续签；未检测到 Xray 或 Hysteria 2 配置使用该证书文件，续签后不会自动重启服务。"
     fi
+}
+
+issue_cloudflare_cert() {
+    local domain base_domain zone_id token zone_name response acme_cmd
+    local cert_dir="$DOMAIN_CERT_DIR" fullchain_file key_file reload_cmd
+    local install_args=()
+
+    if [[ "$EUID" -ne 0 ]]; then
+        warn "Cloudflare DNS 申请请以 root 运行，以保证 acme.sh 与 cron 使用同一用户。"
+        return 1
+    fi
+    if ! command -v jq >/dev/null 2>&1; then
+        warn "需要 jq 验证 Cloudflare Zone ID，请先安装 jq。"
+        return 1
+    fi
+    if [[ ! -x /root/.acme.sh/acme.sh ]] && ! HOME=/root ensure_acme_sh; then
+        return 1
+    fi
+    acme_cmd=/root/.acme.sh/acme.sh
+    if [[ ! -x "$acme_cmd" ]]; then
+        warn "未找到 root 用户的 acme.sh，无法确保自动续签。"
+        return 1
+    fi
+
+    read -rp "请输入要申请证书的域名: " domain
+    domain="${domain,,}"
+    base_domain="${domain#\*.}"
+    if [[ ! "$base_domain" =~ ^([a-z0-9]([a-z0-9-]*[a-z0-9])?\.)+[a-z]{2,}$ ]] ||
+        [[ "$domain" != "$base_domain" && "$domain" != "*.${base_domain}" ]]; then
+        warn "域名格式无效。"
+        return 1
+    fi
+    read -rp "请输入 Cloudflare Zone ID: " zone_id
+    if [[ ! "$zone_id" =~ ^[a-fA-F0-9]{32}$ ]]; then
+        warn "Zone ID 必须是 32 位十六进制字符串。"
+        return 1
+    fi
+    read -rsp "请输入 Cloudflare API Token (输入隐藏): " token
+    echo
+    if [[ -z "$token" || "$token" == *$'\n'* || "$token" == *$'\r'* || "$token" == *'"'* || "$token" == *'\'* ]]; then
+        warn "API Token 格式无效。"
+        return 1
+    fi
+
+    # 从标准输入传给 curl，避免凭据进入进程参数和输出。
+    if ! response=$(printf 'header = "Authorization: Bearer %s"\n' "$token" |
+        curl -fsS --config - "https://api.cloudflare.com/client/v4/zones/$zone_id" 2>/dev/null); then
+        unset token
+        warn "查询 Cloudflare Zone 失败，请检查 Zone Read 权限和 Zone ID。"
+        return 1
+    fi
+    if [[ "$(jq -r '.success // false' <<< "$response" 2>/dev/null)" != true ]]; then
+        unset token
+        warn "Cloudflare 拒绝查询 Zone，请检查 Zone Read 权限和 Zone ID。"
+        return 1
+    fi
+    zone_name=$(jq -r '.result.name // empty' <<< "$response" 2>/dev/null) || { unset token; return 1; }
+    zone_name="${zone_name,,}"
+    if [[ -z "$zone_name" || ( "$base_domain" != "$zone_name" && "$base_domain" != *."$zone_name" ) ]]; then
+        unset token
+        warn "Zone ID 对应的 Zone 与申请域名不匹配。"
+        return 1
+    fi
+
+    fullchain_file="${cert_dir}/${domain}.fullchain.cer"
+    key_file="${cert_dir}/${domain}.key"
+    reload_cmd=$(build_cert_reload_cmd "$fullchain_file")
+    echo "使用 Cloudflare DNS API 申请证书: $domain (Zone: $zone_name)"
+    if ! HOME=/root "$acme_cmd" --set-default-ca --server letsencrypt >/dev/null; then
+        unset token
+        warn "设置 Let's Encrypt 为默认颁发机构失败。"
+        return 1
+    fi
+    # dns_cf 将凭据写入域名配置，root cron 续签无需交互环境变量。
+    if ! (umask 077; HOME=/root CF_Token="$token" CF_Zone_ID="$zone_id" \
+        "$acme_cmd" --issue --dns dns_cf -d "$domain" --keylength ec-256 >/dev/null 2>&1); then
+        unset token
+        warn "DNS 证书申请失败，请检查 DNS Edit 权限、DNS 传播和 root 的 acme.sh 日志。"
+        return 1
+    fi
+    unset token
+    if [[ ! -f "/root/.acme.sh/${domain}_ecc/${domain}.conf" ]] ||
+        ! chmod 600 "/root/.acme.sh/${domain}_ecc/${domain}.conf"; then
+        warn "无法确认或保护续签凭据配置，已停止证书安装。"
+        return 1
+    fi
+    if ! mkdir -p "$cert_dir"; then
+        warn "创建证书目录失败；证书已申请，可稍后重试安装。"
+        return 1
+    fi
+    install_args=(--install-cert -d "$domain" --ecc
+        --fullchain-file "$fullchain_file" --key-file "$key_file")
+    if [[ -n "$reload_cmd" ]]; then
+        install_args+=(--reloadcmd "$reload_cmd")
+    fi
+    if ! HOME=/root "$acme_cmd" "${install_args[@]}"; then
+        warn "证书安装失败；证书已申请，但自动部署尚未设置。"
+        return 1
+    fi
+    if ! chmod 755 /etc/domain "$cert_dir" || ! chmod 644 "$fullchain_file" "$key_file"; then
+        warn "设置证书文件权限失败。"
+        return 1
+    fi
+    if ! HOME=/root ensure_acme_cron "$acme_cmd"; then
+        warn "证书已安装，但自动续签任务设置失败。"
+        return 1
+    fi
+    ok "证书已安装，root 用户的 acme.sh 已设置自动续签。"
+    echo "证书路径: $fullchain_file"
+    echo "私钥路径: $key_file"
+    if [[ -n "$reload_cmd" ]]; then
+        echo "续签并安装成功后自动重启: $reload_cmd"
+    else
+        notice "未检测到服务配置使用该证书；配置服务后可通过证书管理设置续签重启。"
+    fi
+}
+
+issue_cert_menu() {
+    local choice
+    while :; do
+        echo "请选择申请方式:"
+        echo "  1. HTTP Standalone (需开放80端口)"
+        echo "  2. Cloudflare DNS API (申请泛域名证书,格式 *.xxx.com)"
+        echo "  3. 返回上级菜单"
+        read -rp "请输入选项 [1-3]: " choice
+        case "$choice" in
+        1) issue_http_cert; return $? ;;
+        2) issue_cloudflare_cert; return $? ;;
+        3) return 0 ;;
+        *) error ;;
+        esac
+    done
 }
 
 list_acme_domains() {
@@ -1722,17 +1998,51 @@ delete_acme_cert() {
     notice "未停止或重启任何服务，请按实际配置手动处理。"
 }
 
+vless_node_menu() {
+    local choice
+
+    while :; do
+        echo
+        echo "请选择 vless 节点类型:"
+        echo "  1. vless+xtls-rprx-vision+reality"
+        echo "  2. vless+ws+tls"
+        echo "  3. vless+xhttp+tls"
+        echo "  4. 返回上级菜单"
+        read -rp "请输入选项 [1-4]: " choice
+
+        case "$choice" in
+        1)
+            generate_vless_reality_vision
+            ;;
+        2)
+            generate_vless_ws_tls
+            ;;
+        3)
+            generate_vless_xhttp
+            ;;
+        4)
+            return
+            ;;
+        *)
+            error
+            ;;
+        esac
+
+        echo
+        pause
+    done
+}
+
 print_menu() {
     echo "请选择功能:"
     echo "  1. 管理 xray"
     echo "  2. 管理 hysteria 2"
-    echo "  3. 生成 vless+xtls-rprx-vision+reality 节点"
-    echo "  4. 生成 vless+ws+tls 优选节点"
-    echo "  5. 生成 hysteria 2 节点"
-    echo "  6. 开启 bbr"
-    echo "  7. 更新 vps 系统"
-    echo "  8. 申请域名证书"
-    echo "  9. 管理证书"
+    echo "  3. 创建 vless 节点"
+    echo "  4. 创建 hysteria 2 节点"
+    echo "  5. 开启 bbr"
+    echo "  6. 更新 vps 系统"
+    echo "  7. 申请域名证书"
+    echo "  8. 管理证书"
     echo "  0. 退出"
     echo
 }
@@ -1745,7 +2055,7 @@ main() {
         refresh_status
         print_status
         print_menu
-        read -rp "请输入选项 [0-9]: " choice
+        read -rp "请输入选项 [0-8]: " choice
 
         case "$choice" in
         1)
@@ -1755,24 +2065,21 @@ main() {
             manage_hysteria2_menu
             ;;
         3)
-            generate_vless_reality_vision
+            vless_node_menu
             ;;
         4)
-            generate_vless_ws_tls
-            ;;
-        5)
             generate_hysteria2_node
             ;;
-        6)
+        5)
             enable_bbr
             ;;
-        7)
+        6)
             update_vps_system
             ;;
-        8)
-            issue_http_cert
+        7)
+            issue_cert_menu
             ;;
-        9)
+        8)
             manage_certs
             ;;
         0)
