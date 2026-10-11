@@ -3,14 +3,9 @@
 // when set, otherwise every endpoint in REMOTE_LIST.
 // Only `server`/`port` are swapped: sni/servername, xhttp-opts and every other
 // field are inherited from the original proxy untouched (no `host` is added).
-// Unusable VLESS nodes are removed before the replacement: the WebSocket ones in
-// the Node runtime, the XHTTP ones in every other runtime.
 async function operator(proxies) {
   const $ = $substore
   const inArg = $arguments || {}
-  const isNodeEnv = $substore.env.isNode === true
-  // Node runtime cannot use WS nodes, other runtimes cannot use XHTTP nodes.
-  const droppedNetwork = isNodeEnv ? 'ws' : 'xhttp'
   const protocolFilter = inArg.yx === undefined
     ? ''
     : decodeURI(inArg.yx).trim().toLowerCase()
@@ -58,7 +53,6 @@ async function operator(proxies) {
   for (const proxy of proxies) {
     const protocol = String(proxy.type || '').toLowerCase()
     const network = String(proxy.network || '').toLowerCase()
-    if (protocol === 'vless' && network === droppedNetwork) continue // delete it
     const isTargetProtocol = protocol === 'vless' || protocol === 'vmess'
     const isTargetNetwork = network === 'ws' || network === 'xhttp'
     if (!isTargetProtocol || !isTargetNetwork || (protocolFilter && protocol !== protocolFilter)) {
