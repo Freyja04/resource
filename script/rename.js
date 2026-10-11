@@ -1,7 +1,7 @@
 // ------------------ 传参说明 ------------------
 // 布尔参数传 true/false或任意值启用，想关闭直接不传这个参数
 
-// nm: true/false 未匹配到地区时是否保留原节点；true 保留，false 过滤
+// nm: true/false 未匹配到地区时是否保留原节点；true 保留（不加旗帜、原名不变，编号后再接「」标签），false 过滤
 // clear: 追加过滤词，用英文逗号或中文逗号分隔；未传则只使用默认过滤词
 // dqpx: 指定地区排序顺序，用英文逗号或中文逗号分隔，如 "香港,日本,美国"
 
@@ -63,7 +63,7 @@ const QC = ['Hong Kong','Macao','Taiwan','Japan','Korea','Singapore','United Sta
 
 const specialRegex = [
   /(\d\.)?\d+×/,                          // 匹配倍率（如 2×、1.5×）
-  /IPLC|IEPL|Kern|Edge|Pro|Std|Exp|Game|Buy|中转|优选|商宽|家宽|专线|V6/i,  // 特殊线路类型
+  /IPLC|IEPL|Kern|Pro|Std|Exp|Game|Buy|中转|优选|商宽|家宽|专线|V6/i,  // 特殊线路类型
 ];
 // specialRegex: blpx= true 时按此分组排序，匹配第一组的优先，第二组其次
 const chineseSpecialTags = ["中转", "优选", "商宽", "家宽", "专线"];
@@ -76,11 +76,11 @@ const nameclear = clearWords.length
 // nameclear: 默认过滤词 + clear 传入的追加过滤词
 
 // prettier-ignore
-const regexArray=[/ˣ²/, /ˣ³/, /ˣ⁴/, /ˣ⁵/, /ˣ⁶/, /ˣ⁷/, /ˣ⁸/, /ˣ⁹/, /ˣ¹⁰/, /ˣ²⁰/, /ˣ³⁰/, /ˣ⁴⁰/, /ˣ⁵⁰/, /IPLC/i, /IEPL/i, /核心/, /边缘/, /高级/, /标准/, /实验/, /游戏|game/i, /购物/, /中转/, /优选/, /商宽/, /家宽/, /专线/, /V6/i,];
+const regexArray=[/ˣ²/, /ˣ³/, /ˣ⁴/, /ˣ⁵/, /ˣ⁶/, /ˣ⁷/, /ˣ⁸/, /ˣ⁹/, /ˣ¹⁰/, /ˣ²⁰/, /ˣ³⁰/, /ˣ⁴⁰/, /ˣ⁵⁰/, /IPLC/i, /IEPL/i, /核心/, /高级/, /标准/, /实验/, /游戏|game/i, /购物/, /中转/, /优选/, /商宽/, /家宽/, /专线/, /V6/i,];
 // regexArray: blgd=true 时匹配固定格式倍率/线路类型的正则列表
 
 // prettier-ignore
-const valueArray= [ "2×","3×","4×","5×","6×","7×","8×","9×","10×","20×","30×","40×","50×","「IPLC」","「IEPL」","「Kern」","「Edge」","「Pro」","「Std」","「Exp」","「Game」","「Buy」","「中转」","「优选」","「商宽」","「家宽」","「专线」","「V6」"];
+const valueArray= [ "2×","3×","4×","5×","6×","7×","8×","9×","10×","20×","30×","40×","50×","「IPLC」","「IEPL」","「Kern」","「Pro」","「Std」","「Exp」","「Game」","「Buy」","「中转」","「优选」","「商宽」","「家宽」","「专线」","「V6」"];
 // valueArray: 与 regexArray 一一对应的替换值
 
 const nameblnx = /(高倍|(?!1)2+(x|倍)|ˣ²|ˣ³|ˣ⁴|ˣ⁵|ˣ¹⁰)/i;
@@ -172,13 +172,16 @@ function operator(pro) {
     });
 
     let ikey = "",
-      ikeys = [];
+      ikeys = [],
+      tagTexts = [];
     // 保留固定格式 倍率 / 线路标签（可同时命中多个，按 regexArray 顺序去重保留）
     if (blgd) {
       regexArray.forEach((regex, index) => {
         const tag = valueArray[index];
         if (ikeys.indexOf(tag) === -1 && regex.test(e.name)) {
           ikeys.push(tag);
+          const matched = e.name.match(regex);
+          if (matched) tagTexts.push(matched[0]);
         }
       });
     }
@@ -203,6 +206,8 @@ function operator(pro) {
     );
     
     const subName = `${FNAME}`;
+    // 将 ikeys 暂存到节点上，稍后在序号后面追加（多个标签用 FGF 连接）
+    e._ikeys = ikeys.join(FGF);
     if (findKey?.[1]) {
       const findKeyValue = findKey[1]; e._region = findKeyValue;
       let keyover = [],
@@ -214,18 +219,21 @@ function operator(pro) {
           usflag = usflag === "🇹🇼" ? "🇨🇳" : usflag;
         }
       }
-      // 将 ikeys 暂存到节点上，稍后在序号后面追加（多个标签用 FGF 连接）
-      e._ikeys = ikeys.join(FGF);
       keyover = keyover
         .concat(usflag, subName, findKeyValue, ikey)
         .filter((k) => k !== "");
       e.name = keyover.join(FGF);
+    } else if (nm) {
+      // 无地区：不加旗帜、原名保持不变，仅把已识别的标签词从名字里摘出，
+      // 使结构与有地区的节点一致——编号在前、「」标签在最后
+      let nmName = e.name;
+      tagTexts.forEach((text) => {
+        nmName = nmName.replace(text, "");
+      });
+      nmName = nmName.replace(/\s+/g, " ").trim();
+      e.name = (FNAME + FGF + nmName).trim();
     } else {
-      if (nm) {
-        e.name = FNAME + FGF + e.name;
-      } else {
-        e.name = null;
-      }
+      e.name = null;
     }
   });
   pro = pro.filter((e) => e.name !== null);
