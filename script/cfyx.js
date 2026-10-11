@@ -35,8 +35,10 @@ async function operator(proxies) {
   // The Node runtime cannot use WS nodes, every other runtime cannot use XHTTP.
   const droppedNetwork = isNodeEnv ? 'ws' : 'xhttp'
 
-  // One endpoint per line. Supported forms: example.com, example.com:443#HK, 1.2.3.4#US.
-  // Keep this empty to use REMOTE_LIST.
+  // One endpoint per line, two forms only: `example.com` and `example.com:443`
+  // (IPv4 works the same way: `1.2.3.4`, `1.2.3.4:8443`). Without a port the
+  // proxy's original port is kept. Blank lines and lines starting with # or //
+  // are ignored. Keep this empty to use REMOTE_LIST.
   const LOCAL_LIST = `
     cf.877774.xyz
     cloudflare.182682.xyz
@@ -101,30 +103,18 @@ async function operator(proxies) {
     return delNames.some((name) => sub.includes(name))
   }
 
-  // Accepted forms: example.com, example.com:443#HK, and 1.2.3.4#US.
-  // Blank lines and lines starting with # or // are ignored.
+  // Accepted forms: `example.com` and `example.com:443` (IPv4 likewise).
+  // `#label` suffixes, IPv6 and malformed lines are rejected rather than turned
+  // into a broken server value. Blank lines and lines starting with # or // are
+  // ignored.
   function parseEndpoint(line) {
     const value = line.trim()
     if (!value || /^(#|\/\/)/.test(value)) return null
 
-    const match = value.match(/^(.+?)(?:#(.*))?$/)
-    const address = match?.[1]?.trim()
-    const name = match?.[2]?.trim()
-    if (!address) return null
+    const match = value.match(/^([A-Za-z0-9._-]+)(?::(\d{1,5}))?$/)
+    if (!match) return null
 
-    let server
-    let port
-    const hostWithPort = address.match(/^([^:]+):(\d+)$/)
-
-    if (hostWithPort) {
-      server = hostWithPort[1].trim()
-      port = hostWithPort[2]
-    } else if (!/[:\[\]\s]/.test(address)) {
-      // Bare domains and IPv4 addresses use the proxy's original port.
-      server = address
-    }
-
-    if (!server) return null
-    return { server, port: port ? Number(port) : undefined, name }
+    const server = match[1]
+    return match[2] ? { server, port: Number(match[2]) } : { server }
   }
 }
