@@ -1,14 +1,40 @@
 // Sub-Store operator script.
-// Replaces VLESS/VMess WebSocket and XHTTP proxies' servers with local endpoints
-// when set, otherwise every endpoint in REMOTE_LIST.
-// Only `server`/`port` are swapped: sni/servername, xhttp-opts and every other
-// field are inherited from the original proxy untouched (no `host` is added).
+// Replaces VLESS WebSocket / XHTTP proxies' servers with the endpoints below
+// (LOCAL_LIST when set, otherwise every endpoint in REMOTE_LIST), one 优选 copy
+// per endpoint. Only `server`/`port` are swapped: sni/servername, xhttp-opts and
+// every other field are inherited from the original proxy untouched (no `host`
+// is added).
+//
+// Argument:
+//   delyx=<订阅名>[, <订阅名>...]  Names of the subscriptions whose unusable VLESS
+//     nodes are dropped before the replacement. On the Node runtime those are the
+//     WS nodes, on every other runtime the XHTTP ones. Without delyx nothing is
+//     ever dropped.
+// Expansion targets exactly the VLESS WS and the VLESS XHTTP nodes, in every
+// environment. VLESS nodes on any other transport, and every non-VLESS node
+// (vmess, trojan, ...), are passed through unchanged.
 async function operator(proxies) {
   const $ = $substore
   const inArg = $arguments || {}
-  const protocolFilter = inArg.yx === undefined
-    ? ''
-    : decodeURI(inArg.yx).trim().toLowerCase()
+  const isNodeEnv = $substore.env.isNode === true
+
+  // delyx is matched case-insensitively as a substring of `_subName`, so DDO also
+  // matches a subscription named "CF DDO". Several names may be separated by
+  // commas or spaces.
+  let delRaw = String(inArg.delyx ?? '')
+  try {
+    delRaw = decodeURI(delRaw)
+  } catch (error) {
+    // not valid percent-encoding: keep the raw value
+  }
+  const delNames = delRaw
+    .split(/[,\s]+/)
+    .map((name) => name.trim().toLowerCase())
+    .filter(Boolean)
+
+  // The Node runtime cannot use WS nodes, every other runtime cannot use XHTTP.
+  const droppedNetwork = isNodeEnv ? 'ws' : 'xhttp'
+
   // One endpoint per line. Supported forms: example.com, example.com:443#HK, 1.2.3.4#US.
   // Keep this empty to use REMOTE_LIST.
   const LOCAL_LIST = `
@@ -36,13 +62,7 @@ async function operator(proxies) {
     }
   }
 
-  const endpoints = []
-
-  for (const line of body.split(/\r?\n/)) {
-    const endpoint = parseEndpoint(line)
-    if (!endpoint) continue
-    endpoints.push(endpoint)
-  }
+  const endpoints = body.split(/\r?\n/).map((line) => parseEndpoint(line)).filter(Boolean)
 
   if (endpoints.length === 0) {
     $.error(`No usable endpoints found in ${source}`)
@@ -53,9 +73,12 @@ async function operator(proxies) {
   for (const proxy of proxies) {
     const protocol = String(proxy.type || '').toLowerCase()
     const network = String(proxy.network || '').toLowerCase()
-    const isTargetProtocol = protocol === 'vless' || protocol === 'vmess'
-    const isTargetNetwork = network === 'ws' || network === 'xhttp'
-    if (!isTargetProtocol || !isTargetNetwork || (protocolFilter && protocol !== protocolFilter)) {
+
+    if (delNames.length > 0 && protocol === 'vless' && network === droppedNetwork && isNamedSub(proxy)) {
+      continue
+    }
+
+    if (protocol !== 'vless' || (network !== 'ws' && network !== 'xhttp')) {
       result.push(proxy)
       continue
     }
@@ -71,6 +94,12 @@ async function operator(proxies) {
   }
 
   return result
+
+  function isNamedSub(proxy) {
+    const sub = String(proxy._subName || proxy.subName || '').trim().toLowerCase()
+    if (!sub) return false
+    return delNames.some((name) => sub.includes(name))
+  }
 
   // Accepted forms: example.com, example.com:443#HK, and 1.2.3.4#US.
   // Blank lines and lines starting with # or // are ignored.
