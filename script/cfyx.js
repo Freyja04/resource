@@ -8,7 +8,7 @@
 async function operator(proxies) {
   const $ = $substore
   const inArg = $arguments || {}
-  const isNodeEnv = $substore && $substore.env && $substore.env.isNode === true
+  const isNodeEnv = $substore.env.isNode === true
   // Node runtime cannot use WS nodes, other runtimes cannot use XHTTP nodes.
   const droppedNetwork = isNodeEnv ? 'ws' : 'xhttp'
   const protocolFilter = inArg.yx === undefined

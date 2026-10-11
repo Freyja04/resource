@@ -9,9 +9,8 @@
 // bl: true/false 从节点名中识别倍率并追加为倍率标记，如 2×、3×、2.5×
 // nx: true/false 过滤掉高倍率节点
 // blnx: true/false 只保留高倍率节点
-// blgd: true/false 保留节点名中的固定倍率或线路标签，如 2×、IPLC、优选、V6
+// blgd: true/false 保留节点名中的固定倍率或线路标签，如 2×、IPLC、优选、V6；命中多个时全部保留
 // blpx: true/false 将带倍率或线路标签的特殊节点排到同地区普通节点后面
-// blkey: 自定义保留关键词，多个用 "+" 分隔，支持 "关键词>替换值"
 
 // 节点重命名
 // flag: true/false 在地区名左侧添加对应旗帜 emoji
@@ -31,8 +30,7 @@ const addflag = inArg.flag || true,
   nm = inArg.nm || false;
 
 const FGF = inArg.fgf == undefined ? " " : decodeURI(inArg.fgf),
-  XHFGF = inArg.sn == undefined ? " " : decodeURI(inArg.sn),
-  BLKEY = inArg.blkey == undefined ? "" : decodeURI(inArg.blkey);
+  XHFGF = inArg.sn == undefined ? " " : decodeURI(inArg.sn);
 
 const clearRaw = inArg.clear == undefined ? "" : decodeURI(inArg.clear);
 const dqpx = inArg.dqpx == undefined ? "" : decodeURI(inArg.dqpx);
@@ -164,63 +162,23 @@ function operator(pro) {
     });
   }
 
-  const BLKEYS = BLKEY ? BLKEY.split("+") : [];
-
   pro.forEach((e) => {
     const FNAME = e._subName;
-    let bktf = false, ens = e.name, retainKey = ""
-    rureEntries.forEach(([ikey, regex]) => {
+    rureEntries.forEach(([rkey, regex]) => {
       if (regex.test(e.name)) {
         var replaceRegex = new RegExp(regex.source, regex.ignoreCase ? "gi" : "g");
-        e.name = e.name.replace(replaceRegex, ikey);
-      if (BLKEY) {
-        bktf = true
-        let BLKEY_REPLACE = "",
-        re = false;
-      BLKEYS.forEach((i) => {
-        if (i.includes(">") && ens.includes(i.split(">")[0])) {
-          if (regex.test(i.split(">")[0])) {
-              e.name += " " + i.split(">")[0]
-            }
-          if (i.split(">")[1]) {
-            BLKEY_REPLACE = i.split(">")[1];
-            re = true;
-          }
-        } else {
-          if (ens.includes(i)) {
-             e.name += " " + i
-            }
-        }
-        retainKey = re
-        ? BLKEY_REPLACE
-        : BLKEYS.filter((items) => e.name.includes(items));
-      });}
+        e.name = e.name.replace(replaceRegex, rkey);
       }
     });
-    // 自定义
-    if (!bktf && BLKEY) {
-      let BLKEY_REPLACE = "",
-        re = false;
-      BLKEYS.forEach((i) => {
-        if (i.includes(">") && e.name.includes(i.split(">")[0])) {
-          if (i.split(">")[1]) {
-            BLKEY_REPLACE = i.split(">")[1];
-            re = true;
-          }
-        }
-      });
-      retainKey = re
-        ? BLKEY_REPLACE
-        : BLKEYS.filter((items) => e.name.includes(items));
-    }
 
     let ikey = "",
-      ikeys = "";
-    // 保留固定格式 倍率
+      ikeys = [];
+    // 保留固定格式 倍率 / 线路标签（可同时命中多个，按 regexArray 顺序去重保留）
     if (blgd) {
       regexArray.forEach((regex, index) => {
-        if (regex.test(e.name)) {
-          ikeys = valueArray[index];
+        const tag = valueArray[index];
+        if (ikeys.indexOf(tag) === -1 && regex.test(e.name)) {
+          ikeys.push(tag);
         }
       });
     }
@@ -256,10 +214,10 @@ function operator(pro) {
           usflag = usflag === "🇹🇼" ? "🇨🇳" : usflag;
         }
       }
-      // 将 ikeys 暂存到节点上，稍后在序号后面追加
-      e._ikeys = ikeys;
+      // 将 ikeys 暂存到节点上，稍后在序号后面追加（多个标签用 FGF 连接）
+      e._ikeys = ikeys.join(FGF);
       keyover = keyover
-        .concat(usflag, subName, findKeyValue, retainKey, ikey)
+        .concat(usflag, subName, findKeyValue, ikey)
         .filter((k) => k !== "");
       e.name = keyover.join(FGF);
     } else {

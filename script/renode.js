@@ -17,7 +17,7 @@
 //   isLanceX: false,
 //   isGUIforCores: false
 // }
-const isNodeEnv = $substore && $substore.env && $substore.env.isNode === true;
+const isNodeEnv = $substore.env.isNode === true;
 // tlsFeatureProtocols: ech-opts 与 client-fingerprint 处理共用的协议白名单
 const tlsFeatureProtocols = ["vmess", "vless", "trojan", "anytls"];
 
