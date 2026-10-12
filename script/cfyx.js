@@ -46,8 +46,6 @@ async function operator(proxies) {
     cf.0sm.com
     cfip.1323123.xyz
     cnamefuckxxs.yuchen.icu
-    cloudflare-ip.mofashi.ltd
-    cdn.tzpro.xyz
 `
   const REMOTE_LIST = 'https://raw.githubusercontent.com/Freyja04/resource/main/script/cfyx.txt'
 
